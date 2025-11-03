@@ -6,37 +6,35 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method Not Allowed" });
 
   try {
-    // TODO: verify Athalos signature if provided
     const { call_id, pincode, calling_number, called_number, country_code } = req.body || {};
     if (!call_id || !pincode) return res.status(400).json({ error: "call_id and pincode required" });
 
-    // 1) Zoek call via pincode
+    // Zoek call op pincode
     const q = new URLSearchParams({ filter: JSON.stringify({ pincode: { _eq: pincode } }) });
-    const fr = await fetch(`${process.env.DIRECTUS_URL}/items/calls?${q}`, {
+    const r = await fetch(`${process.env.DIRECTUS_URL}/items/calls?${q}`, {
       headers: { "Authorization": `Bearer ${process.env.DIRECTUS_TOKEN}` }
     });
-    const found = await fr.json();
-    const call = found?.data?.[0];
+    const data = await r.json();
+    const call = data.data?.[0];
     if (!call) return res.status(404).json({ error: "PIN not found" });
 
-    // 2) Update call + visit
+    // Update call
     await fetch(`${process.env.DIRECTUS_URL}/items/calls/${call.id}`, {
       method: "PATCH",
       headers: { "Authorization": `Bearer ${process.env.DIRECTUS_TOKEN}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "active", call_id, calling_number, called_number, country_code })
+      body: JSON.stringify({
+        call_id,
+        calling_number,
+        called_number,
+        country_code,
+        status: "active"
+      })
     });
-    if (call.visit_id) {
-      await fetch(`${process.env.DIRECTUS_URL}/items/visits/${call.visit_id}`, {
-        method: "PATCH",
-        headers: { "Authorization": `Bearer ${process.env.DIRECTUS_TOKEN}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "connected", connected_at: new Date().toISOString() })
-      });
-    }
 
-    // 3) Bepaal voiceFolderPath (placeholder — later via Directus-config)
+    // Placeholder logic voor IVR pad
     const voiceFolderPath = `/ivr/quiz/${(country_code || "NL").toUpperCase()}`;
 
-    return res.status(200).json({ voiceFolderPath });
+    res.status(200).json({ voiceFolderPath });
   } catch (e) {
     console.error("call-init error:", e);
     return res.status(500).json({ error: e.message });
