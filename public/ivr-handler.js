@@ -1,10 +1,12 @@
 // =============================================================
-// ✅ ivr-handler.js — nieuwe IVR integratie met Directus + Vercel API's
+// ✅ ivr-handler.js — IVR integratie + debug overlay (Directus + Vercel)
 // =============================================================
 (function () {
   console.log("📞 ivr-handler.js gestart");
 
-  // Helper: random fallback UUID voor clickId
+  // ------------------------------------------------------------
+  // 🔹 Helpers
+  // ------------------------------------------------------------
   function getUUID() {
     if (crypto && crypto.randomUUID) return crypto.randomUUID();
     return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
@@ -14,15 +16,16 @@
     });
   }
 
-  // ------------------------------------------------------------
-  // 📦 Basis tracking ophalen (hergebruikt van formSubmit.js)
-  // ------------------------------------------------------------
   const urlParams = new URLSearchParams(window.location.search);
+  const isDebug = urlParams.get("debug") === "ivr" || window.location.hostname.includes("vercel.app");
+
+  // Tracking parameters
   const t_id = urlParams.get("t_id") || getUUID();
   const aff_id = urlParams.get("aff_id") || "unknown";
   const offer_id = urlParams.get("offer_id") || "unknown";
   const sub_id = urlParams.get("sub_id") || "unknown";
   const sub_id_2 = urlParams.get("sub_id_2") || sub_id;
+  const isMobile = window.innerWidth < 768;
 
   sessionStorage.setItem("t_id", t_id);
   sessionStorage.setItem("aff_id", aff_id);
@@ -30,11 +33,52 @@
   sessionStorage.setItem("sub_id", sub_id);
   sessionStorage.setItem("sub_id_2", sub_id_2);
 
-  const isMobile = window.innerWidth < 768;
   console.log("📱 Apparaatstype:", isMobile ? "mobile" : "desktop");
 
   // ------------------------------------------------------------
-  // 📍 Helper: element tonen/verbergen
+  // 🧩 Debug overlay
+  // ------------------------------------------------------------
+  let debugBox;
+  function setupDebugOverlay() {
+    if (!isDebug) return;
+
+    debugBox = document.createElement("div");
+    debugBox.id = "ivr-debug-overlay";
+    debugBox.style.position = "fixed";
+    debugBox.style.bottom = "0";
+    debugBox.style.right = "0";
+    debugBox.style.background = "rgba(0,0,0,0.8)";
+    debugBox.style.color = "#0f0";
+    debugBox.style.fontFamily = "monospace";
+    debugBox.style.fontSize = "12px";
+    debugBox.style.padding = "10px 14px";
+    debugBox.style.zIndex = "999999";
+    debugBox.style.borderTopLeftRadius = "8px";
+    debugBox.style.maxWidth = "280px";
+    debugBox.style.lineHeight = "1.4";
+    debugBox.innerHTML = `
+      <b>IVR Debug Overlay</b><br>
+      <small>(alleen zichtbaar in debugmodus)</small><br><br>
+      <div id="ivr-debug-log">
+        <span>t_id: ${t_id}</span><br>
+        <span>aff_id: ${aff_id}</span><br>
+        <span>offer_id: ${offer_id}</span><br>
+        <span>sub_id: ${sub_id}</span><br><br>
+        <span>Visit ID: <span id="dbg-visit-id">...</span></span><br>
+        <span>PIN: <span id="dbg-pin">...</span></span>
+      </div>
+    `;
+    document.body.appendChild(debugBox);
+  }
+
+  function updateDebug(key, value) {
+    if (!isDebug || !debugBox) return;
+    const el = document.getElementById(key);
+    if (el) el.textContent = value;
+  }
+
+  // ------------------------------------------------------------
+  // 📍 Helper: element tonen
   // ------------------------------------------------------------
   function showElement(id) {
     const el = document.getElementById(id);
@@ -42,12 +86,13 @@
   }
 
   // ------------------------------------------------------------
-  // 🧾 1️⃣ Register Visit → nieuwe visit in Directus
+  // 🧾 1️⃣ Register Visit
   // ------------------------------------------------------------
   async function registerVisit() {
     const cached = sessionStorage.getItem("internalVisitId");
     if (cached) {
       console.log("🔁 Gebruik bestaande internalVisitId:", cached);
+      updateDebug("dbg-visit-id", cached);
       return cached;
     }
 
@@ -68,19 +113,22 @@
       if (data.internalVisitId) {
         sessionStorage.setItem("internalVisitId", data.internalVisitId);
         console.log("✅ Visit geregistreerd:", data.internalVisitId);
+        updateDebug("dbg-visit-id", data.internalVisitId);
         return data.internalVisitId;
       } else {
         console.warn("⚠️ Geen internalVisitId ontvangen:", data);
+        updateDebug("dbg-visit-id", "❌ geen ID");
         return null;
       }
     } catch (err) {
       console.error("❌ Fout bij registerVisit:", err);
+      updateDebug("dbg-visit-id", "❌ error");
       return null;
     }
   }
 
   // ------------------------------------------------------------
-  // 🔢 2️⃣ Pincode ophalen zodra IVR-sectie zichtbaar is
+  // 🔢 2️⃣ Pincode ophalen
   // ------------------------------------------------------------
   async function requestPin(internalVisitId) {
     try {
@@ -99,8 +147,11 @@
       const data = await res.json();
       if (data.pincode) {
         console.log("🔢 Pincode ontvangen:", data.pincode);
+        updateDebug("dbg-pin", data.pincode);
+
         const spinnerId = isMobile ? "pin-code-spinner-mobile" : "pin-code-spinner-desktop";
         showElement(isMobile ? "pin-container-mobile" : "pin-container-desktop");
+
         if (typeof animatePinRevealSpinner === "function") {
           animatePinRevealSpinner(data.pincode, spinnerId);
         } else {
@@ -108,9 +159,11 @@
         }
       } else {
         console.warn("⚠️ Geen pincode in response:", data);
+        updateDebug("dbg-pin", "❌ geen PIN");
       }
     } catch (err) {
       console.error("❌ Fout bij requestPin:", err);
+      updateDebug("dbg-pin", "❌ error");
     }
   }
 
@@ -142,9 +195,10 @@
   }
 
   // ------------------------------------------------------------
-  // 🚀 Start watchers
+  // 🚀 Start watcher + overlay
   // ------------------------------------------------------------
   document.addEventListener("DOMContentLoaded", () => {
+    setupDebugOverlay();
     waitForIVRSection();
   });
 })();
