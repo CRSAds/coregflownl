@@ -1,0 +1,44 @@
+export default async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-AUTH-SIGNATURE");
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method !== "POST") return res.status(405).json({ error: "Method Not Allowed" });
+
+  try {
+    // TODO: verify Athalos signature if provided
+    const { call_id, pincode, calling_number, called_number, country_code } = req.body || {};
+    if (!call_id || !pincode) return res.status(400).json({ error: "call_id and pincode required" });
+
+    // 1) Zoek call via pincode
+    const q = new URLSearchParams({ filter: JSON.stringify({ pincode: { _eq: pincode } }) });
+    const fr = await fetch(`${process.env.DIRECTUS_URL}/items/calls?${q}`, {
+      headers: { "Authorization": `Bearer ${process.env.DIRECTUS_TOKEN}` }
+    });
+    const found = await fr.json();
+    const call = found?.data?.[0];
+    if (!call) return res.status(404).json({ error: "PIN not found" });
+
+    // 2) Update call + visit
+    await fetch(`${process.env.DIRECTUS_URL}/items/calls/${call.id}`, {
+      method: "PATCH",
+      headers: { "Authorization": `Bearer ${process.env.DIRECTUS_TOKEN}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "active", call_id, calling_number, called_number, country_code })
+    });
+    if (call.visit_id) {
+      await fetch(`${process.env.DIRECTUS_URL}/items/visits/${call.visit_id}`, {
+        method: "PATCH",
+        headers: { "Authorization": `Bearer ${process.env.DIRECTUS_TOKEN}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "connected", connected_at: new Date().toISOString() })
+      });
+    }
+
+    // 3) Bepaal voiceFolderPath (placeholder — later via Directus-config)
+    const voiceFolderPath = `/ivr/quiz/${(country_code || "NL").toUpperCase()}`;
+
+    return res.status(200).json({ voiceFolderPath });
+  } catch (e) {
+    console.error("call-init error:", e);
+    return res.status(500).json({ error: e.message });
+  }
+}
