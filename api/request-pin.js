@@ -1,11 +1,24 @@
-function genPin() { return String(Math.floor(100 + Math.random() * 900)); }
-
 export default async function handler(req, res) {
+  // --- ✅ CORS headers ---
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "POST") return res.status(405).json({ error: "Method Not Allowed" });
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, X-AUTH-SIGNATURE"
+  );
+
+  // --- ✅ Preflight afhandeling ---
+  if (req.method === "OPTIONS") {
+    res.statusCode = 200;
+    res.end();
+    return;
+  }
+
+  // --- ❌ Overige methoden blokkeren ---
+  if (req.method !== "POST") {
+    res.status(405).json({ error: "Method Not Allowed" });
+    return;
+  }
 
   try {
     const { clickId, affId, offerId, subId, subId2, internalVisitId } = req.body || {};
