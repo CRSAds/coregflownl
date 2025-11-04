@@ -1,5 +1,10 @@
 {
   "version": 2,
+  "functions": {
+    "api/*.js": {
+      "runtime": "nodejs20.x"
+    }
+  },
   "builds": [
     {
       "src": "api/**/*.js",
@@ -10,15 +15,21 @@
       "use": "@vercel/static"
     }
   ],
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1.js"
+    }
+  ],
   "routes": [
     {
       "src": "/api/(.*)",
       "headers": {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Cache-Control, Authorization"
+        "Access-Control-Allow-Headers": "Content-Type, Cache-Control, Authorization, X-AUTH-SIGNATURE"
       },
-      "dest": "/api/$1"
+      "dest": "/api/$1.js"
     },
     {
       "src": "/(.*)",
