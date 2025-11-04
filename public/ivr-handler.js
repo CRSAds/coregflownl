@@ -4,6 +4,9 @@
 (function () {
   console.log("📞 ivr-handler.js gestart");
 
+  // 🌐 absolute API-basis zodat het altijd werkt vanuit Swipe Pages
+  const API_BASE = "https://coregflownl.vercel.app";
+
   // ------------------------------------------------------------
   // 🔹 Helpers
   // ------------------------------------------------------------
