@@ -1,233 +1,149 @@
 // =============================================================
-// ✅ ivr-handler.js — IVR integratie + debug overlay (Directus + Vercel)
+// ✅ ivr-handler.js — nieuwe IVR flow met zelfde gedrag als oude versie
 // =============================================================
 (function () {
   console.log("📞 ivr-handler.js gestart");
-
-  // 🌐 absolute API-basis zodat het altijd werkt vanuit Swipe Pages
   const API_BASE = "https://coregflownl.vercel.app";
 
-  // ------------------------------------------------------------
-  // 🔹 Helpers
-  // ------------------------------------------------------------
-  function getUUID() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const affId = urlParams.get("aff_id") || "unknown";
+  const offerId = urlParams.get("offer_id") || "unknown";
+  const subId = urlParams.get("sub_id") || "unknown";
+
+  function getTransactionId() {
     if (crypto && crypto.randomUUID) return crypto.randomUUID();
-    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-      const r = (Math.random() * 16) | 0;
-      const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+      const r = (Math.random() * 16) | 0,
+        v = c === "x" ? r : (r & 0x3) | 0x8;
       return v.toString(16);
     });
   }
 
-  const urlParams = new URLSearchParams(window.location.search);
-  const isDebug = urlParams.get("debug") === "ivr" || window.location.hostname.includes("vercel.app");
+  const transaction_id = urlParams.get("t_id") || getTransactionId();
+  sessionStorage.setItem("t_id", transaction_id);
+  sessionStorage.setItem("aff_id", affId);
+  sessionStorage.setItem("offer_id", offerId);
+  sessionStorage.setItem("sub_id", subId);
 
-  // Tracking parameters
-  const t_id = urlParams.get("t_id") || getUUID();
-  const aff_id = urlParams.get("aff_id") || "unknown";
-  const offer_id = urlParams.get("offer_id") || "unknown";
-  const sub_id = urlParams.get("sub_id") || "unknown";
-  const sub_id_2 = urlParams.get("sub_id_2") || sub_id;
   const isMobile = window.innerWidth < 768;
-
-  sessionStorage.setItem("t_id", t_id);
-  sessionStorage.setItem("aff_id", aff_id);
-  sessionStorage.setItem("offer_id", offer_id);
-  sessionStorage.setItem("sub_id", sub_id);
-  sessionStorage.setItem("sub_id_2", sub_id_2);
-
   console.log("📱 Apparaatstype:", isMobile ? "mobile" : "desktop");
 
-  // ------------------------------------------------------------
-  // 🧩 Debug overlay
-  // ------------------------------------------------------------
-  let debugBox;
-  function setupDebugOverlay() {
-    if (!isDebug) return;
-
-    debugBox = document.createElement("div");
-    debugBox.id = "ivr-debug-overlay";
-    debugBox.style.position = "fixed";
-    debugBox.style.bottom = "0";
-    debugBox.style.right = "0";
-    debugBox.style.background = "rgba(0,0,0,0.8)";
-    debugBox.style.color = "#0f0";
-    debugBox.style.fontFamily = "monospace";
-    debugBox.style.fontSize = "12px";
-    debugBox.style.padding = "10px 14px";
-    debugBox.style.zIndex = "999999";
-    debugBox.style.borderTopLeftRadius = "8px";
-    debugBox.style.maxWidth = "280px";
-    debugBox.style.lineHeight = "1.4";
-    debugBox.innerHTML = `
-      <b>IVR Debug Overlay</b><br>
-      <small>(alleen zichtbaar in debugmodus)</small><br><br>
-      <div id="ivr-debug-log">
-        <span>t_id: ${t_id}</span><br>
-        <span>aff_id: ${aff_id}</span><br>
-        <span>offer_id: ${offer_id}</span><br>
-        <span>sub_id: ${sub_id}</span><br><br>
-        <span>Visit ID: <span id="dbg-visit-id">...</span></span><br>
-        <span>PIN: <span id="dbg-pin">...</span></span>
-      </div>
-    `;
-    document.body.appendChild(debugBox);
-  }
-
-  function updateDebug(key, value) {
-    if (!isDebug || !debugBox) return;
-    const el = document.getElementById(key);
-    if (el) el.textContent = value;
-  }
-
-  // ------------------------------------------------------------
-  // 📍 Helper: element tonen
-  // ------------------------------------------------------------
-  function showElement(id) {
-    const el = document.getElementById(id);
-    if (el) el.style.display = "block";
-  }
-
-  // ------------------------------------------------------------
-  // 🧾 1️⃣ Register Visit
-  // ------------------------------------------------------------
-  async function registerVisit() {
-    const cached = sessionStorage.getItem("internalVisitId");
-    if (cached) {
-      console.log("🔁 Gebruik bestaande internalVisitId:", cached);
-      updateDebug("dbg-visit-id", cached);
-      return cached;
+  document.addEventListener("DOMContentLoaded", async () => {
+    const mobile = document.getElementById("ivr-mobile");
+    const desktop = document.getElementById("ivr-desktop");
+    if (mobile && desktop) {
+      mobile.style.display = isMobile ? "block" : "none";
+      desktop.style.display = isMobile ? "none" : "block";
     }
 
-    try {
-      const res = await fetch(`${API_BASE}/api/register-visit`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clickId: t_id,
-          affId: aff_id,
-          offerId: offer_id,
-          subId: sub_id,
-          subId2: sub_id_2,
-          isMobile
-        })
-      });
-      const data = await res.json();
-      if (data.internalVisitId) {
-        sessionStorage.setItem("internalVisitId", data.internalVisitId);
-        console.log("✅ Visit geregistreerd:", data.internalVisitId);
-        updateDebug("dbg-visit-id", data.internalVisitId);
-        return data.internalVisitId;
-      } else {
-        console.warn("⚠️ Geen internalVisitId ontvangen:", data);
-        updateDebug("dbg-visit-id", "❌ geen ID");
-        return null;
+    // 1️⃣ Register visit direct bij pageload
+    async function registerVisit() {
+      const cached = sessionStorage.getItem("internalVisitId");
+      if (cached) return cached;
+      try {
+        const res = await fetch(`${API_BASE}/api/register-visit`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clickId: transaction_id,
+            affId,
+            offerId,
+            subId,
+            subId2: subId,
+            isMobile,
+          }),
+        });
+        const data = await res.json();
+        if (data.internalVisitId) {
+          sessionStorage.setItem("internalVisitId", data.internalVisitId);
+          console.log("✅ Visit geregistreerd:", data.internalVisitId);
+          return data.internalVisitId;
+        }
+      } catch (err) {
+        console.error("❌ registerVisit:", err);
       }
-    } catch (err) {
-      console.error("❌ Fout bij registerVisit:", err);
-      updateDebug("dbg-visit-id", "❌ error");
       return null;
     }
-  }
 
-  // ------------------------------------------------------------
-  // 🔢 2️⃣ Pincode ophalen
-  // ------------------------------------------------------------
-  async function requestPin(internalVisitId) {
-    try {
-      const res = await fetch(`${API_BASE}/api/request-pin`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clickId: t_id,
-          affId: aff_id,
-          offerId: offer_id,
-          subId: sub_id,
-          subId2: sub_id_2,
-          internalVisitId
-        })
-      });
-      const data = await res.json();
-      if (data.pincode) {
-        console.log("🔢 Pincode ontvangen:", data.pincode);
-        updateDebug("dbg-pin", data.pincode);
+    const visitPromise = registerVisit();
 
-        const spinnerId = isMobile ? "pin-code-spinner-mobile" : "pin-code-spinner-desktop";
-        showElement(isMobile ? "pin-container-mobile" : "pin-container-desktop");
+    // 2️⃣ Functie om pincode-animatie te starten
+    function animatePinRevealSpinner(pin, targetId) {
+      const container = document.getElementById(targetId);
+      if (!container) return;
+      const digits = container.querySelectorAll(".digit-inner");
+      const pinStr = pin.toString().padStart(3, "0");
 
-        if (typeof animatePinRevealSpinner === "function") {
-          animatePinRevealSpinner(data.pincode, spinnerId);
-        } else {
-          console.warn("⚠️ animatePinRevealSpinner() niet gevonden");
+      pinStr.split("").forEach((digit, i) => {
+        const inner = digits[i];
+        inner.innerHTML = "";
+        for (let j = 0; j <= 9; j++) {
+          const span = document.createElement("span");
+          span.textContent = j;
+          inner.appendChild(span);
         }
-      } else {
-        console.warn("⚠️ Geen pincode in response:", data);
-        updateDebug("dbg-pin", "❌ geen PIN");
-      }
-    } catch (err) {
-      console.error("❌ Fout bij requestPin:", err);
-      updateDebug("dbg-pin", "❌ error");
+        const targetOffset = parseInt(digit, 10) * 64;
+        setTimeout(() => {
+          inner.style.transform = `translateY(-${targetOffset}px)`;
+        }, 100);
+      });
     }
-  }
 
-// ------------------------------------------------------------
-// 🕓 3️⃣ Watcher — detecteert wanneer IVR-sectie verschijnt of zichtbaar wordt
-// ------------------------------------------------------------
-function waitForIVRSection() {
-  let triggered = false;
+    // 3️⃣ Poll-functie om te wachten tot de sectie zichtbaar is
+    function waitForIVRSectionAndShowPin() {
+      let ivrShown = false;
+      const interval = setInterval(() => {
+        const ivr = document.getElementById("ivr-section");
+        if (!ivr) return;
+        const style = window.getComputedStyle(ivr);
+        const isVisible =
+          style.display !== "none" &&
+          style.opacity !== "0" &&
+          ivr.offsetHeight > 0;
 
-  function isVisible(el) {
-    if (!el) return false;
-    const style = window.getComputedStyle(el);
-    const rect = el.getBoundingClientRect();
-    return (
-      style.display !== "none" &&
-      style.visibility !== "hidden" &&
-      style.opacity !== "0" &&
-      rect.width > 0 &&
-      rect.height > 0
-    );
-  }
+        if (isVisible && !ivrShown) {
+          ivrShown = true;
+          clearInterval(interval);
+          console.log("👀 IVR section visible → showing PIN...");
 
-  async function tryStart() {
-    const ivr = document.getElementById("ivr-section");
-    if (!ivr || triggered) return;
-    if (isVisible(ivr)) {
-      triggered = true;
-      console.log("👀 IVR-sectie zichtbaar → start flow");
-      const visitId = await registerVisit();
-      if (visitId) await requestPin(visitId);
+          const containerId = isMobile
+            ? "pin-container-mobile"
+            : "pin-container-desktop";
+          const spinnerId = isMobile
+            ? "pin-code-spinner-mobile"
+            : "pin-code-spinner-desktop";
+          document.getElementById(containerId).style.display = "block";
+
+          visitPromise.then(async (internalVisitId) => {
+            if (!internalVisitId) return;
+            try {
+              const res = await fetch(`${API_BASE}/api/request-pin`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  clickId: transaction_id,
+                  affId,
+                  offerId,
+                  subId,
+                  subId2: subId,
+                  internalVisitId,
+                }),
+              });
+              const data = await res.json();
+              if (data.pincode) {
+                console.log("🔢 PIN ontvangen:", data.pincode);
+                animatePinRevealSpinner(data.pincode, spinnerId);
+              } else {
+                console.warn("⚠️ Geen pincode:", data);
+              }
+            } catch (err) {
+              console.error("❌ requestPin:", err);
+            }
+          });
+        }
+      }, 200);
     }
-  }
 
-  // 1️⃣ fallback polling
-  const poll = setInterval(tryStart, 500);
-
-  // 2️⃣ Mutation observer – reageert op toegevoegde of gewijzigde nodes
-  const observer = new MutationObserver(() => tryStart());
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true,
-    attributes: true,
-    attributeFilter: ["style", "class"],
-  });
-
-  // 3️⃣ automatische stop als alles is gestart
-  const stopCheck = setInterval(() => {
-    if (triggered) {
-      clearInterval(poll);
-      observer.disconnect();
-      clearInterval(stopCheck);
-      console.log("✅ IVR observer gestopt – sectie verwerkt");
-    }
-  }, 1000);
-}
-
-  // ------------------------------------------------------------
-  // 🚀 Start watcher + overlay
-  // ------------------------------------------------------------
-  document.addEventListener("DOMContentLoaded", () => {
-    setupDebugOverlay();
-    waitForIVRSection();
+    waitForIVRSectionAndShowPin();
   });
 })();
