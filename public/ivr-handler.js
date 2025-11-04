@@ -100,7 +100,7 @@
     }
 
     try {
-      const res = await fetch("/api/register-visit", {
+      const res = await fetch(`${API_BASE}/api/register-visit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -135,7 +135,7 @@
   // ------------------------------------------------------------
   async function requestPin(internalVisitId) {
     try {
-      const res = await fetch("/api/request-pin", {
+      const res = await fetch(`${API_BASE}/api/request-pin`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
