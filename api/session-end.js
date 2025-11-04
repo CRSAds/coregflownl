@@ -1,25 +1,26 @@
 export default async function handler(req, res) {
-  // --- CORS (alle methoden en headers toegestaan)
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    "Content-Type, Authorization, X-AUTH-SIGNATURE, Cache-Control"
-  );
+  // ✅ Universele CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Cache-Control, Authorization, X-AUTH-SIGNATURE');
 
-  // --- Preflight: altijd OK teruggeven ---
-  if (req.method === "OPTIONS") {
-    res.statusCode = 200;
-    res.setHeader("Content-Length", "0");
-    res.end();
-    return;
+  // ✅ Preflight (OPTIONS) meteen afsluiten
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
   }
 
-  // --- Alleen POST toestaan voor echte requests ---
-  if (req.method !== "POST") {
-    res.status(405).json({ error: "Method Not Allowed" });
-    return;
+  // ✅ Alleen POST requests toestaan
+  if (req.method !== 'POST') {
+    return res.status(405).json({ success: false, message: 'Method Not Allowed' });
   }
+
+  try {
+    // ... hier komt je eigen code
+  } catch (e) {
+    console.error('API error:', e);
+    return res.status(500).json({ error: e.message });
+  }
+}
 
   try {
     const { call_id, seconds_called } = req.body || {};
