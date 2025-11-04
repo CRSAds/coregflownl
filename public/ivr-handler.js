@@ -118,17 +118,17 @@
             if (!internalVisitId) return;
             try {
               const res = await fetch(`${API_BASE}/api/request-pin.js`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  clickId: transaction_id,
-                  affId,
-                  offerId,
-                  subId,
-                  subId2: subId,
-                  internalVisitId,
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                clickId: transaction_id,
+                affId,
+                offerId,
+                subId,
+                subId2: subId,
+                internalVisitId,
               }),
-              });
+            });
               const data = await res.json();
               if (data.pincode) {
                 console.log("🔢 PIN ontvangen:", data.pincode);
