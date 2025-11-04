@@ -1,20 +1,21 @@
 export default async function handler(req, res) {
-  // --- ✅ CORS headers ---
+  // --- CORS (alle methoden en headers toegestaan)
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   res.setHeader(
     "Access-Control-Allow-Headers",
-    "Content-Type, Authorization, X-AUTH-SIGNATURE"
+    "Content-Type, Authorization, X-AUTH-SIGNATURE, Cache-Control"
   );
 
-  // --- ✅ Preflight afhandeling ---
+  // --- Preflight: altijd OK teruggeven ---
   if (req.method === "OPTIONS") {
     res.statusCode = 200;
+    res.setHeader("Content-Length", "0");
     res.end();
     return;
   }
 
-  // --- ❌ Overige methoden blokkeren ---
+  // --- Alleen POST toestaan voor echte requests ---
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method Not Allowed" });
     return;
