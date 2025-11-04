@@ -171,34 +171,58 @@
   }
 
   // ------------------------------------------------------------
-  // 🕓 3️⃣ Watcher — wacht tot IVR-sectie zichtbaar is
-  // ------------------------------------------------------------
-  function waitForIVRSection() {
-    let triggered = false;
-    const interval = setInterval(async () => {
-      const ivrSection = document.getElementById("ivr-section");
-      if (!ivrSection) return;
+// 🕓 3️⃣ Watcher — detecteert wanneer IVR-sectie zichtbaar wordt
+// ------------------------------------------------------------
+function waitForIVRSection() {
+  let triggered = false;
 
-      const style = window.getComputedStyle(ivrSection);
-      const rect = ivrSection.getBoundingClientRect();
-      const visible =
-        style &&
-        style.display !== "none" &&
-        style.visibility !== "hidden" &&
-        style.opacity !== "0" &&
-        rect.width > 0 &&
-        rect.height > 0;
-
-      if (visible && !triggered) {
-        triggered = true;
-        clearInterval(interval);
-        console.log("👀 IVR-sectie zichtbaar → start flow");
-
-        const internalVisitId = await registerVisit();
-        if (internalVisitId) await requestPin(internalVisitId);
-      }
-    }, 200);
+  // Helper om te checken of element echt zichtbaar is
+  function isVisible(el) {
+    if (!el) return false;
+    const style = window.getComputedStyle(el);
+    const rect = el.getBoundingClientRect();
+    return (
+      style.display !== "none" &&
+      style.visibility !== "hidden" &&
+      style.opacity !== "0" &&
+      rect.width > 0 &&
+      rect.height > 0
+    );
   }
+
+  async function checkAndTrigger() {
+    const ivrSection = document.getElementById("ivr-section");
+    if (!ivrSection || triggered) return;
+    if (isVisible(ivrSection)) {
+      triggered = true;
+      console.log("👀 IVR-sectie zichtbaar → start flow");
+      const internalVisitId = await registerVisit();
+      if (internalVisitId) await requestPin(internalVisitId);
+    }
+  }
+
+  // 🔹 1. Start directe polling (voor fallback)
+  const poll = setInterval(checkAndTrigger, 500);
+
+  // 🔹 2. Observeer wijzigingen in de hele body (popup wordt vaak gemount via display toggle)
+  const observer = new MutationObserver(() => checkAndTrigger());
+  observer.observe(document.body, {
+    attributes: true,
+    childList: true,
+    subtree: true,
+    attributeFilter: ["style", "class"]
+  });
+
+  // Stop beide zodra triggered
+  const stopAll = () => {
+    if (triggered) {
+      clearInterval(poll);
+      observer.disconnect();
+      console.log("✅ IVR Observer gestopt (sectie gedetecteerd)");
+    }
+  };
+  const stopInterval = setInterval(stopAll, 1000);
+}
 
   // ------------------------------------------------------------
   // 🚀 Start watcher + overlay
