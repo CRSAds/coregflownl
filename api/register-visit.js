@@ -26,7 +26,7 @@ module.exports = async function handler(req, res) {
         "Authorization": `Bearer ${process.env.DIRECTUS_TOKEN}`,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({ data: payload }) // 👈 BELANGRIJK
     });
 
     const json = await r.json();
