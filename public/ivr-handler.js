@@ -180,11 +180,14 @@
       if (!ivrSection) return;
 
       const style = window.getComputedStyle(ivrSection);
+      const rect = ivrSection.getBoundingClientRect();
       const visible =
         style &&
         style.display !== "none" &&
+        style.visibility !== "hidden" &&
         style.opacity !== "0" &&
-        ivrSection.offsetHeight > 0;
+        rect.width > 0 &&
+        rect.height > 0;
 
       if (visible && !triggered) {
         triggered = true;
