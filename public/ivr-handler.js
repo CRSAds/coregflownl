@@ -41,7 +41,7 @@
       const cached = sessionStorage.getItem("internalVisitId");
       if (cached) return cached;
       try {
-        const res = await fetch(`${API_BASE}/api/register-visit.js`, {
+        const res = await fetch(`${API_BASE}/api/register-visit`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -117,7 +117,7 @@
           visitPromise.then(async (internalVisitId) => {
             if (!internalVisitId) return;
             try {
-              const res = await fetch(`${API_BASE}/api/request-pin.js`, {
+              const res = await fetch(`${API_BASE}/api/request-pin`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
