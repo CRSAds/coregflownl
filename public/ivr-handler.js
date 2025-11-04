@@ -127,7 +127,7 @@
                   subId,
                   subId2: subId,
                   internalVisitId,
-                }),
+              }),
               });
               const data = await res.json();
               if (data.pincode) {
