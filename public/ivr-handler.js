@@ -170,13 +170,12 @@
     }
   }
 
-  // ------------------------------------------------------------
-// 🕓 3️⃣ Watcher — detecteert wanneer IVR-sectie zichtbaar wordt
+// ------------------------------------------------------------
+// 🕓 3️⃣ Watcher — detecteert wanneer IVR-sectie verschijnt of zichtbaar wordt
 // ------------------------------------------------------------
 function waitForIVRSection() {
   let triggered = false;
 
-  // Helper om te checken of element echt zichtbaar is
   function isVisible(el) {
     if (!el) return false;
     const style = window.getComputedStyle(el);
@@ -190,38 +189,38 @@ function waitForIVRSection() {
     );
   }
 
-  async function checkAndTrigger() {
-    const ivrSection = document.getElementById("ivr-section");
-    if (!ivrSection || triggered) return;
-    if (isVisible(ivrSection)) {
+  async function tryStart() {
+    const ivr = document.getElementById("ivr-section");
+    if (!ivr || triggered) return;
+    if (isVisible(ivr)) {
       triggered = true;
       console.log("👀 IVR-sectie zichtbaar → start flow");
-      const internalVisitId = await registerVisit();
-      if (internalVisitId) await requestPin(internalVisitId);
+      const visitId = await registerVisit();
+      if (visitId) await requestPin(visitId);
     }
   }
 
-  // 🔹 1. Start directe polling (voor fallback)
-  const poll = setInterval(checkAndTrigger, 500);
+  // 1️⃣ fallback polling
+  const poll = setInterval(tryStart, 500);
 
-  // 🔹 2. Observeer wijzigingen in de hele body (popup wordt vaak gemount via display toggle)
-  const observer = new MutationObserver(() => checkAndTrigger());
+  // 2️⃣ Mutation observer – reageert op toegevoegde of gewijzigde nodes
+  const observer = new MutationObserver(() => tryStart());
   observer.observe(document.body, {
-    attributes: true,
     childList: true,
     subtree: true,
-    attributeFilter: ["style", "class"]
+    attributes: true,
+    attributeFilter: ["style", "class"],
   });
 
-  // Stop beide zodra triggered
-  const stopAll = () => {
+  // 3️⃣ automatische stop als alles is gestart
+  const stopCheck = setInterval(() => {
     if (triggered) {
       clearInterval(poll);
       observer.disconnect();
-      console.log("✅ IVR Observer gestopt (sectie gedetecteerd)");
+      clearInterval(stopCheck);
+      console.log("✅ IVR observer gestopt – sectie verwerkt");
     }
-  };
-  const stopInterval = setInterval(stopAll, 1000);
+  }, 1000);
 }
 
   // ------------------------------------------------------------
