@@ -26,8 +26,14 @@ module.exports = async function handler(req, res) {
         "Authorization": `Bearer ${process.env.DIRECTUS_TOKEN}`,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ data: payload }) // 👈 BELANGRIJK
+      body: JSON.stringify({ data: payload })
     });
+    
+    const json = await r.json();
+    if (!r.ok) {
+      console.error("❌ Directus error:", r.status, json);
+      return res.status(r.status).json({ error: json });
+    }
 
     const json = await r.json();
     if (!r.ok) return res.status(r.status).json({ error: json });
