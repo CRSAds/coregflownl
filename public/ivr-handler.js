@@ -12,7 +12,7 @@
 
   function getTransactionId() {
     if (crypto && crypto.randomUUID) return crypto.randomUUID();
-    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
       const r = (Math.random() * 16) | 0,
         v = c === "x" ? r : (r & 0x3) | 0x8;
       return v.toString(16);
@@ -118,17 +118,17 @@
             if (!internalVisitId) return;
             try {
               const res = await fetch(`${API_BASE}/api/request-pin.js`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                clickId: transaction_id,
-                affId,
-                offerId,
-                subId,
-                subId2: subId,
-                internalVisitId,
-              }),
-            });
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  clickId: transaction_id,
+                  affId,
+                  offerId,
+                  subId,
+                  subId2: subId,
+                  internalVisitId,
+                }),
+              });
               const data = await res.json();
               if (data.pincode) {
                 console.log("🔢 PIN ontvangen:", data.pincode);
