@@ -184,19 +184,22 @@ async function initCoregFlow() {
     }
   }
 
-  container.innerHTML = `
-    <div class="coreg-inner">
-      <div class="ld-progress-wrap mb-25">
-        <div class="ld-progress-info">
-          <span class="progress-label">Je bent er bijna</span>
-          <span class="progress-value text-primary">0%</span>
-        </div>
-        <div class="ld-progress lh-8" role="progressbar" data-progress="0">
-          <div class="progress-bar" style="width:0%;"></div>
-        </div>
+container.innerHTML = `
+  <div class="coreg-inner">
+    <div class="coreg-header">
+      <h2 id="coreg-motivation" class="coreg-motivation">Laten we beginnen — minder dan een minuut 👇</h2>
+    </div>
+    <div class="ld-progress-wrap mb-25">
+      <div class="ld-progress-info">
+        <span class="progress-label">Voortgang</span>
+        <span class="progress-value text-primary">0%</span>
       </div>
-      <div id="coreg-sections"></div>
-    </div>`;
+      <div class="ld-progress lh-8" role="progressbar" data-progress="0">
+        <div class="progress-bar" style="width:0%;"></div>
+      </div>
+    </div>
+    <div id="coreg-sections"></div>
+  </div>`;
 
   const sectionsContainer = container.querySelector("#coreg-sections");
 
@@ -217,18 +220,31 @@ async function initCoregFlow() {
   sections.forEach((s, i) => (s.style.display = i === 0 ? "block" : "none"));
 
   // ============ Helpers ============
-  function updateProgressBar(sectionIdx) {
-    const total = sections.length;
-    const current = Math.max(1, Math.min(sectionIdx + 1, total));
-    const percent = Math.round((current / total) * 100);
-    const wrap = container.querySelector('.ld-progress[role="progressbar"]');
-    const val = container.querySelector('.progress-value.text-primary');
-    if (wrap) {
-      wrap.setAttribute("data-progress", percent);
-      wrap.querySelector(".progress-bar").style.width = percent + "%";
-    }
-    if (val) val.textContent = percent + "%";
+function updateProgressBar(sectionIdx) {
+  const total = sections.length;
+  const current = Math.max(1, Math.min(sectionIdx + 1, total));
+  const percent = Math.round((current / total) * 100);
+
+  const wrap = container.querySelector('.ld-progress[role="progressbar"]');
+  const val = container.querySelector('.progress-value.text-primary');
+  const motivationEl = container.querySelector('#coreg-motivation');
+
+  if (wrap) {
+    wrap.setAttribute("data-progress", percent);
+    wrap.querySelector(".progress-bar").style.width = percent + "%";
   }
+  if (val) val.textContent = percent + "%";
+
+  // Dynamische motiverende tekst
+  if (motivationEl) {
+    let msg = "Laten we beginnen — dit duurt maar een minuut 👇";
+    if (percent >= 25 && percent < 50) msg = "Top! Je doet het goed — nog een paar vragen 🎯";
+    else if (percent >= 50 && percent < 75) msg = "Je bent over de helft — even volhouden! 🚀";
+    else if (percent >= 75 && percent < 100) msg = "Bijna klaar — laatste vragen 🙌";
+    else if (percent >= 100) msg = "Geweldig! Je hebt alle vragen beantwoord 🎉";
+    motivationEl.textContent = msg;
+  }
+}
 
   function showNextSection(current) {
     const idx = sections.indexOf(current);
