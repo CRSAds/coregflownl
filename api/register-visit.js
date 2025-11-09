@@ -24,7 +24,7 @@ module.exports = async function handler(req, res) {
       sub_id: subId || '',
       sub_id_2: subId2 || '',
       is_mobile: !!isMobile,
-      used_for_pixel_firing: clickId,
+      used_for_pixel_firing: "no",
       date_created: new Date().toISOString(),
     };
 
