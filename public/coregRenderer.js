@@ -402,4 +402,7 @@ function updateProgressBar(sectionIdx) {
   });
 }
 
+// 🔹 Signaal: coreg-antwoorden kunnen beschikbaar zijn vóór het short form
+window.coregAnswersReady = true;
+
 window.addEventListener("DOMContentLoaded", initCoregFlow);
