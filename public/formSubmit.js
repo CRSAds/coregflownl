@@ -285,6 +285,33 @@ document.addEventListener("DOMContentLoaded", () => {
       await fetchLead(basePayload);
       console.log("✅ Shortform lead verzonden naar campagne 925");
 
+      // -----------------------------------------------------------
+      // 🔹 Coreg sponsors versturen NA short form als coreg eerder is ingevuld
+      // -----------------------------------------------------------
+      if (window.coregAnswersReady) {
+        const allCoregKeys = Object.keys(sessionStorage).filter(k => k.startsWith("f_2014_coreg_answer_"));
+        if (allCoregKeys.length > 0) {
+          console.log(`🧩 ${allCoregKeys.length} coreg-antwoorden gevonden — verwerken...`);
+          const pendingLongForms = JSON.parse(sessionStorage.getItem("longFormCampaigns") || "[]");
+          for (const key of allCoregKeys) {
+            const cid = key.replace("f_2014_coreg_answer_", "");
+            const answer = sessionStorage.getItem(key);
+            const isLongForm = pendingLongForms.some(p => String(p.cid) === cid);
+            if (isLongForm) {
+              console.log(`⏸️ ${cid} is longform — wachten tot long form submit`);
+              continue;
+            }
+            const sid = "34";
+            const payload = buildPayload({ cid, sid, is_shortform: false });
+            payload.f_2014_coreg_answer = answer;
+            console.log(`📨 Coreg sponsor ${cid} (shortform) wordt nu verstuurd na short form`);
+            await fetchLead(payload);
+          }
+        } else {
+          console.log("ℹ️ Geen coreg-antwoorden gevonden om te versturen na short form.");
+        }
+      }
+
       // co-sponsors (alleen als akkoord eerder is gegeven)
       const accepted = sessionStorage.getItem("sponsorsAccepted") === "true";
       if (accepted) {
