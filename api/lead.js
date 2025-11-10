@@ -1,5 +1,5 @@
 // =============================================================
-// ✅ /api/lead.js — stabiele versie met juiste Databowl mapping
+// ✅ /api/lead.js — stabiele versie met juiste Databowl mapping + optindate
 // =============================================================
 import querystring from "querystring";
 
@@ -61,12 +61,17 @@ export default async function handler(req, res) {
     if (gender) params.set("f_2_title", gender);
     if (dob) params.set("f_5_dob", dob);
 
-    // ===== Campagne URL + tracking (correcte veldnamen voor Databowl)
+    // ===== Campagne URL + tracking
     if (f_1453_campagne_url) params.set("f_1453_campagne_url", f_1453_campagne_url);
     if (t_id) params.set("f_1322_transaction_id", t_id);
     if (offer_id) params.set("f_1687_offer_id", offer_id);
     if (aff_id) params.set("f_1685_aff_id", aff_id);
     if (sub_id) params.set("f_1684_sub_id", sub_id);
+    if (body.f_17_ipaddress) params.set("f_17_ipaddress", body.f_17_ipaddress);
+
+    // ✅ Optindate toevoegen (van client of fallback server)
+    const optindate = body.f_55_optindate || new Date().toISOString().split('.')[0] + '+0000';
+    params.set("f_55_optindate", optindate);
 
     // ===== Alleen longformvelden bij longform leads
     if (!isShort) {
