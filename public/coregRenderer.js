@@ -146,7 +146,9 @@ async function buildCoregPayload(campaign, answerValue) {
   return payload;
 }
 
-// ============ Renderer ============
+// ============================================================
+// 🧭 Coreg Flow Initialisatie
+// ============================================================
 async function initCoregFlow() {
   log("🚀 initCoregFlow gestart");
 
@@ -186,22 +188,22 @@ async function initCoregFlow() {
     }
   }
 
-container.innerHTML = `
-  <div class="coreg-inner">
-    <div class="coreg-header">
-      <h2 id="coreg-motivation" class="coreg-motivation">Een paar makkelijke vragen en je bent er 🎯</h2>
-    </div>
-    <div class="ld-progress-wrap mb-25">
-      <div class="ld-progress-info">
-        <span class="progress-label">Voortgang</span>
-        <span class="progress-value text-primary">0%</span>
+  container.innerHTML = `
+    <div class="coreg-inner">
+      <div class="coreg-header">
+        <h2 id="coreg-motivation" class="coreg-motivation">Een paar makkelijke vragen en je bent er 🎯</h2>
       </div>
-      <div class="ld-progress lh-8" role="progressbar" data-progress="0">
-        <div class="progress-bar" style="width:0%;"></div>
+      <div class="ld-progress-wrap mb-25">
+        <div class="ld-progress-info">
+          <span class="progress-label">Voortgang</span>
+          <span class="progress-value text-primary">0%</span>
+        </div>
+        <div class="ld-progress lh-8" role="progressbar" data-progress="0">
+          <div class="progress-bar" style="width:0%;"></div>
+        </div>
       </div>
-    </div>
-    <div id="coreg-sections"></div>
-  </div>`;
+      <div id="coreg-sections"></div>
+    </div>`;
 
   const sectionsContainer = container.querySelector("#coreg-sections");
 
@@ -220,45 +222,6 @@ container.innerHTML = `
   const sections = Array.from(sectionsContainer.querySelectorAll(".coreg-section"));
   sections.forEach((s, i) => (s.style.display = i === 0 ? "block" : "none"));
 
-function updateProgressBar(sectionIdx) {
-  const total = sections.length;
-  const current = Math.max(1, Math.min(sectionIdx + 1, total));
-  const percent = Math.round((current / total) * 100);
-
-  const wrap = container.querySelector('.ld-progress[role="progressbar"]');
-  const val = container.querySelector('.progress-value.text-primary');
-  const motivationEl = container.querySelector('#coreg-motivation');
-
-  if (wrap) {
-    wrap.setAttribute("data-progress", percent);
-    wrap.querySelector(".progress-bar").style.width = percent + "%";
-  }
-  if (val) val.textContent = percent + "%";
-
-  // Dynamische motiverende tekst
-  if (motivationEl) {
-    let msg = "Een paar makkelijke vragen en je bent er 🎯";
-    if (percent >= 25 && percent < 50) msg = "Top! Nog maar een paar vragen ⚡️";
-    else if (percent >= 50 && percent < 75) msg = "Over de helft — even volhouden! 🚀";
-    else if (percent >= 75 && percent < 100) msg = "Bijna klaar — laatste vragen 🙌";
-    else if (percent >= 100) msg = "Geweldig! Laatste vraag! 🎉";
-    motivationEl.textContent = msg;
-  }
-}
-
-  function showNextSection(current) {
-    const idx = sections.indexOf(current);
-    if (idx < sections.length - 1) {
-      current.style.display = "none";
-      sections[idx + 1].style.display = "block";
-      updateProgressBar(idx + 1);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    } else {
-      log("🏁 Laatste coreg bereikt – einde flow");
-      handleFinalCoreg();
-    }
-  }
-
   function handleFinalCoreg() {
     log("🏁 handleFinalCoreg aangeroepen");
 
@@ -274,6 +237,8 @@ function updateProgressBar(sectionIdx) {
       btnLongform.click();
     } else if (btnFinish) {
       log("✅ Geen longform sponsors → afronden coreg flow");
+      sessionStorage.setItem("coregFlowCompleted", "true");
+      console.log("🏁 Coreg flow volledig afgerond — antwoorden klaar om te verzenden na shortform.");
       btnFinish.click();
     } else {
       warn("⚠️ Geen longform- of finish-knop gevonden");
