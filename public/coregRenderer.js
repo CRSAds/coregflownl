@@ -23,6 +23,16 @@ function getImageUrl(image) {
     : image.url || "https://via.placeholder.com/600x200?text=Geen+afbeelding";
 }
 
+// safe JSON parse helper
+function parseJSONSafe(raw, fallback = []) {
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : fallback;
+  } catch (e) {
+    return fallback;
+  }
+}
+
 // ============ HTML renderer ============
 function renderCampaignBlock(campaign, steps) {
   const answers = campaign.coreg_answers || [];
@@ -149,6 +159,27 @@ async function buildCoregPayload(campaign, answerValue) {
 // ============ Renderer ============
 async function initCoregFlow() {
   log("🚀 initCoregFlow gestart");
+
+  // Defensive init for preShortform buffer so code elsewhere can rely on it
+  function ensurePreShortformBuffer() {
+    const raw = sessionStorage.getItem("preShortformCoregLeads");
+    if (!raw) {
+      sessionStorage.setItem("preShortformCoregLeads", JSON.stringify([]));
+      log("ℹ️ Geïnitialiseerde preShortformCoregLeads buffer (nieuw)");
+      return;
+    }
+    // if existing value is not a valid array, reset it
+    const parsed = parseJSONSafe(raw, null);
+    if (parsed === null) {
+      sessionStorage.setItem("preShortformCoregLeads", JSON.stringify([]));
+      log("⚠️ Ongeldige preShortformCoregLeads gecorrigeerd naar lege array");
+    } else {
+      // fine as-is
+      log("ℹ️ preShortformCoregLeads aanwezig");
+    }
+  }
+
+  ensurePreShortformBuffer();
 
   function saveCoregAnswer(cid, answer) {
     if (!cid || !answer) return;
@@ -309,10 +340,39 @@ function updateProgressBar(sectionIdx) {
           return;
         }
 
+        const coregBeforeShortForm = sessionStorage.getItem("coregBeforeShortForm") === "true";
+
         if (hasMoreSteps) {
           showNextSection(section);
         } else {
+          // build payload and either buffer or send depending on position
           const payload = await buildCoregPayload(camp, answerValue);
+
+          // validate payload
+          if (!payload || !payload.cid || !payload.sid) {
+            warn("⚠️ Ongeldig payload voor dropdown, cid/sid ontbreken:", payload);
+            showNextSection(section);
+            return;
+          }
+
+          if (coregBeforeShortForm) {
+            // buffer or update existing buffered entry (safe parse)
+            const raw = sessionStorage.getItem("preShortformCoregLeads");
+            const buffer = parseJSONSafe(raw, []);
+            const idxBuf = buffer.findIndex(p => p.cid === payload.cid && p.sid === payload.sid);
+            if (idxBuf > -1) {
+              buffer[idxBuf] = payload; // update existing with freshest combined answer
+              log("♻️ Bestaande buffered payload geüpdatet (dropdown):", payload.cid);
+            } else {
+              buffer.push(payload);
+              log("🕓 Coreg vóór short form → buffered payload (dropdown):", payload.cid);
+            }
+            sessionStorage.setItem("preShortformCoregLeads", JSON.stringify(buffer));
+            showNextSection(section);
+            return;
+          }
+
+          // standaard: coreg ná shortform → direct verzenden
           sendLeadToDatabowl(payload);
           sessionStorage.removeItem(`coreg_answers_${camp.cid}`);
           showNextSection(section);
@@ -346,7 +406,7 @@ function updateProgressBar(sectionIdx) {
           const currentCid = String(camp.cid ?? "");
           const hasMoreSteps = sections.slice(idx + 1).some(s => String(s.dataset.cid || "") === currentCid);
           saveCoregAnswer(camp.cid, answerValue.answer_value);
-        
+
           if (camp.requiresLongForm === true || camp.requiresLongForm === "true") {
             sessionStorage.setItem("requiresLongForm", "true");
             const pending = JSON.parse(sessionStorage.getItem("longFormCampaigns") || "[]");
@@ -358,27 +418,49 @@ function updateProgressBar(sectionIdx) {
             showNextSection(section);
             return;
           }
-        
+
           if (coregBeforeShortForm) {
             // Buffer coreg lead tot shortform is verzonden
-            const buffer = JSON.parse(sessionStorage.getItem("preShortformCoregLeads") || "[]");
+            ensurePreShortformBuffer();
+            const raw = sessionStorage.getItem("preShortformCoregLeads");
+            const buffer = parseJSONSafe(raw, []);
+
+            // build payload (await to avoid race conditions)
             const payload = await buildCoregPayload(camp, answerValue);
-            if (!buffer.find(p => p.cid === payload.cid && p.sid === payload.sid)) {
+
+            // validate payload has cid/sid
+            if (!payload || !payload.cid || !payload.sid) {
+              warn("⚠️ Ongeldig payload — sla buffering over:", payload);
+              showNextSection(section);
+              return;
+            }
+
+            // if an entry for this cid/sid exists, update it with newest combined answer
+            const idxBuf = buffer.findIndex(p => p.cid === payload.cid && p.sid === payload.sid);
+            if (idxBuf > -1) {
+              buffer[idxBuf] = payload; // update existing
+              log("♻️ Bestaande buffered payload geüpdatet:", payload.cid);
+            } else {
               buffer.push(payload);
-              sessionStorage.setItem("preShortformCoregLeads", JSON.stringify(buffer));
               log("🕓 Coreg vóór short form → buffered payload:", payload.cid);
             }
+
+            sessionStorage.setItem("preShortformCoregLeads", JSON.stringify(buffer));
             showNextSection(section);
             return;
           }
-        
+
           // Standaard: coreg ná shortform → direct verzenden
           if (hasMoreSteps) {
             showNextSection(section);
           } else {
             const payload = await buildCoregPayload(camp, answerValue);
-            sendLeadToDatabowl(payload);
-            sessionStorage.removeItem(`coreg_answers_${camp.cid}`);
+            if (payload && payload.cid && payload.sid) {
+              sendLeadToDatabowl(payload);
+              sessionStorage.removeItem(`coreg_answers_${camp.cid}`);
+            } else {
+              warn("⚠️ Ongeldig payload bij directe verzending:", payload);
+            }
             showNextSection(section);
           }
         } else {
