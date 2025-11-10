@@ -222,6 +222,54 @@ async function initCoregFlow() {
   const sections = Array.from(sectionsContainer.querySelectorAll(".coreg-section"));
   sections.forEach((s, i) => (s.style.display = i === 0 ? "block" : "none"));
 
+  // ============================================================
+  // 🔹 Volgende sectie tonen (helper)
+  // ============================================================
+  function showNextSection(current) {
+    const idx = sections.indexOf(current);
+    if (idx < sections.length - 1) {
+      current.style.display = "none";
+      sections[idx + 1].style.display = "block";
+      updateProgressBar(idx + 1);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      log(`➡️ Volgende coreg-sectie getoond (index ${idx + 1}/${sections.length})`);
+    } else {
+      log("🏁 Laatste coreg bereikt — einde flow");
+      handleFinalCoreg();
+    }
+  }
+
+  // ============================================================
+  // 🔹 Voortgangsbalk bijwerken (helper)
+  // ============================================================
+  function updateProgressBar(sectionIdx) {
+    const total = sections.length;
+    const current = Math.max(1, Math.min(sectionIdx + 1, total));
+    const percent = Math.round((current / total) * 100);
+
+    const wrap = container.querySelector('.ld-progress[role="progressbar"]');
+    const val = container.querySelector('.progress-value.text-primary');
+    const motivationEl = container.querySelector('#coreg-motivation');
+
+    if (wrap) {
+      wrap.setAttribute("data-progress", percent);
+      wrap.querySelector(".progress-bar").style.width = percent + "%";
+    }
+    if (val) val.textContent = percent + "%";
+
+    if (motivationEl) {
+      let msg = "Een paar makkelijke vragen en je bent er 🎯";
+      if (percent >= 25 && percent < 50) msg = "Top! Nog maar een paar vragen ⚡️";
+      else if (percent >= 50 && percent < 75) msg = "Over de helft — even volhouden! 🚀";
+      else if (percent >= 75 && percent < 100) msg = "Bijna klaar — laatste vragen 🙌";
+      else if (percent >= 100) msg = "Geweldig! Laatste vraag! 🎉";
+      motivationEl.textContent = msg;
+    }
+  }
+
+  // ============================================================
+  // 🔹 Einde van coreg-flow
+  // ============================================================
   function handleFinalCoreg() {
     log("🏁 handleFinalCoreg aangeroepen");
 
@@ -238,10 +286,11 @@ async function initCoregFlow() {
     } else if (btnFinish) {
       log("✅ Geen longform sponsors → afronden coreg flow");
       sessionStorage.setItem("coregFlowCompleted", "true");
-      console.log("🏁 Coreg flow volledig afgerond — antwoorden klaar om te verzenden na shortform.");
+      log("🏁 Coreg flow volledig afgerond — antwoorden klaar om te verzenden na shortform.");
       btnFinish.click();
     } else {
       warn("⚠️ Geen longform- of finish-knop gevonden");
+      sessionStorage.setItem("coregFlowCompleted", "true");
     }
   }
 
@@ -269,7 +318,7 @@ async function initCoregFlow() {
             pending.push({ cid: camp.cid, sid: camp.sid });
             sessionStorage.setItem("longFormCampaigns", JSON.stringify(pending));
           }
-          log("🕓 Longform-sponsor (buttons) — wachten met verzending:", camp.cid);
+          log("🕓 Longform-sponsor — wachten met verzending:", camp.cid);
           showNextSection(section);
           return;
         }
@@ -279,15 +328,13 @@ async function initCoregFlow() {
         } else {
           const payload = await buildCoregPayload(camp, answerValue);
 
-          // 🔹 Controleer of shortform al voltooid is
           if (window.shortFormCompleted) {
             sendLeadToDatabowl(payload);
             log(`📨 Coreg ${camp.cid} direct verstuurd (shortform al voltooid)`);
           } else {
             log(`🕓 Coreg ${camp.cid} bewaard — shortform nog niet voltooid`);
-            // Lead wordt later verzonden zodra shortform klaar is
           }
-          
+
           sessionStorage.removeItem(`coreg_answers_${camp.cid}`);
           showNextSection(section);
         }
@@ -327,7 +374,7 @@ async function initCoregFlow() {
               pending.push({ cid: camp.cid, sid: camp.sid });
               sessionStorage.setItem("longFormCampaigns", JSON.stringify(pending));
             }
-            log("🕓 Longform-sponsor (buttons) — wachten met verzending:", camp.cid);
+            log("🕓 Longform-sponsor — wachten met verzending:", camp.cid);
             showNextSection(section);
             return;
           }
@@ -337,15 +384,13 @@ async function initCoregFlow() {
           } else {
             const payload = await buildCoregPayload(camp, answerValue);
 
-            // 🔹 Controleer of shortform al voltooid is
             if (window.shortFormCompleted) {
               sendLeadToDatabowl(payload);
               log(`📨 Coreg ${camp.cid} direct verstuurd (shortform al voltooid)`);
             } else {
               log(`🕓 Coreg ${camp.cid} bewaard — shortform nog niet voltooid`);
-              // Lead wordt later verzonden zodra shortform klaar is
             }
-            
+
             sessionStorage.removeItem(`coreg_answers_${camp.cid}`);
             showNextSection(section);
           }
