@@ -44,7 +44,7 @@ function normalizeId(value, fallback) {
 }
 
 // On-demand check of whether coreg is placed before shortform in the DOM.
-// Avoids race with initFlow-lite.
+// Avoids race with initFlow-lite writing sessionStorage.
 function isCoregBeforeShortForm() {
   try {
     const coregEl = document.getElementById("coreg-container");
@@ -246,10 +246,262 @@ async function initCoregFlow() {
     }
   }
 
-container.innerHTML = `
+  container.innerHTML = `
   <div class="coreg-inner">
     <div class="coreg-header">
       <h2 id="coreg-motivation" class="coreg-motivation">Een paar makkelijke vragen en je bent er 🎯</h2>
     </div>
     <div class="ld-progress-wrap mb-25">
       <div class="ld-progress-info">
+        <span class="progress-label">Voortgang</span>
+        <span class="progress-value text-primary">0%</span>
+      </div>
+      <div class="ld-progress lh-8" role="progressbar" data-progress="0">
+        <div class="progress-bar" style="width:0%;"></div>
+      </div>
+    </div>
+    <div id="coreg-sections"></div>
+  </div>`;
+
+  const sectionsContainer = container.querySelector("#coreg-sections");
+
+  ordered.forEach((camp, idx) => {
+    const isFinal = idx === ordered.length - 1;
+    camp.isFinal = isFinal;
+    if (camp.has_coreg_flow && grouped[camp.cid]) {
+      grouped[camp.cid].forEach(step => {
+        sectionsContainer.innerHTML += renderCampaignBlock(step, true);
+      });
+    } else {
+      sectionsContainer.innerHTML += renderCampaignBlock(camp, false);
+    }
+  });
+
+  const sections = Array.from(sectionsContainer.querySelectorAll(".coreg-section"));
+  sections.forEach((s, i) => (s.style.display = i === 0 ? "block" : "none"));
+
+  function updateProgressBar(sectionIdx) {
+    const total = sections.length;
+    const current = Math.max(1, Math.min(sectionIdx + 1, total));
+    const percent = Math.round((current / total) * 100);
+
+    const wrap = container.querySelector('.ld-progress[role="progressbar"]');
+    const val = container.querySelector('.progress-value.text-primary');
+    const motivationEl = container.querySelector('#coreg-motivation');
+
+    if (wrap) {
+      wrap.setAttribute("data-progress", percent);
+      wrap.querySelector(".progress-bar").style.width = percent + "%";
+    }
+    if (val) val.textContent = percent + "%";
+
+    if (motivationEl) {
+      let msg = "Een paar makkelijke vragen en je bent er 🎯";
+      if (percent >= 25 && percent < 50) msg = "Top! Nog maar een paar vragen ⚡️";
+      else if (percent >= 50 && percent < 75) msg = "Over de helft — even volhouden! 🚀";
+      else if (percent >= 75 && percent < 100) msg = "Bijna klaar — laatste vragen 🙌";
+      else if (percent >= 100) msg = "Geweldig! Laatste vraag! 🎉";
+      motivationEl.textContent = msg;
+    }
+  }
+
+  function showNextSection(current) {
+    const idx = sections.indexOf(current);
+    if (idx < sections.length - 1) {
+      current.style.display = "none";
+      sections[idx + 1].style.display = "block";
+      updateProgressBar(idx + 1);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } else {
+      log("🏁 Laatste coreg bereikt – einde flow");
+      handleFinalCoreg();
+    }
+  }
+
+  function handleFinalCoreg() {
+    log("🏁 handleFinalCoreg aangeroepen");
+
+    const requiresLongForm = sessionStorage.getItem("requiresLongForm") === "true";
+    const pending = parseJSONSafe(sessionStorage.getItem("longFormCampaigns"), []);
+    const hasLongFormCampaigns = Array.isArray(pending) && pending.length > 0;
+
+    const btnLongform = document.getElementById("coreg-longform-btn");
+    const btnFinish = document.getElementById("coreg-finish-btn");
+
+    if ((requiresLongForm || hasLongFormCampaigns) && btnLongform) {
+      log("🧾 Alle coreg vragen afgerond → toon long form", pending);
+      btnLongform.click();
+    } else if (btnFinish) {
+      log("✅ Geen longform sponsors → afronden coreg flow");
+      btnFinish.click();
+    } else {
+      warn("⚠️ Geen longform- of finish-knop gevonden");
+    }
+  }
+
+  // ============ Event Listeners ============
+  sections.forEach(section => {
+    const dropdown = section.querySelector(".coreg-dropdown");
+    if (dropdown) {
+      dropdown.addEventListener("change", async e => {
+        const opt = e.target.selectedOptions[0];
+        if (!opt || !opt.value) return;
+        const camp = campaigns.find(c => c.id == dropdown.dataset.campaign);
+        const answerValue = { answer_value: opt.value, cid: opt.dataset.cid, sid: opt.dataset.sid };
+        log("🟢 Dropdown keuze →", answerValue);
+
+        sessionStorage.setItem(`f_2575_coreg_answer_dropdown_${camp.cid}`, opt.value);
+
+        const idx = sections.indexOf(section);
+        const currentCid = String(camp.cid ?? "");
+        const hasMoreSteps = sections.slice(idx + 1).some(s => String(s.dataset.cid || "") === currentCid);
+
+        if (camp.requiresLongForm) {
+          sessionStorage.setItem("requiresLongForm", "true");
+          const pending = parseJSONSafe(sessionStorage.getItem("longFormCampaigns"), []);
+          if (!pending.find(p => p.cid === camp.cid && p.sid === camp.sid)) {
+            pending.push({ cid: camp.cid, sid: camp.sid });
+            sessionStorage.setItem("longFormCampaigns", JSON.stringify(pending));
+          }
+          log("🕓 Longform-sponsor (dropdown) — wachten met verzending:", camp.cid);
+          showNextSection(section);
+          return;
+        }
+
+        if (hasMoreSteps) {
+          showNextSection(section);
+        } else {
+          const payload = await buildCoregPayload(camp, answerValue);
+
+          if (!payload || !payload.cid || !payload.sid) {
+            warn("⚠️ Ongeldig payload voor dropdown, cid/sid ontbreken:", payload);
+            showNextSection(section);
+            return;
+          }
+
+          const coregBeforeShortForm = isCoregBeforeShortForm();
+
+          if (coregBeforeShortForm) {
+            const raw = sessionStorage.getItem("preShortformCoregLeads");
+            const buffer = parseJSONSafe(raw, []);
+            const idxBuf = buffer.findIndex(p => p.cid === payload.cid && p.sid === payload.sid);
+            if (idxBuf > -1) {
+              buffer[idxBuf] = payload;
+              log("♻️ Bestaande buffered payload geüpdatet (dropdown):", payload.cid);
+            } else {
+              buffer.push(payload);
+              log("🕓 Coreg vóór short form → buffered payload (dropdown):", payload.cid);
+            }
+            sessionStorage.setItem("preShortformCoregLeads", JSON.stringify(buffer));
+            showNextSection(section);
+            return;
+          }
+
+          sendLeadToDatabowl(payload);
+          sessionStorage.removeItem(`coreg_answers_${camp.cid}`);
+          showNextSection(section);
+        }
+      });
+    }
+
+    const skip = section.querySelector(".skip-link");
+    if (skip) {
+      skip.addEventListener("click", e => {
+        e.preventDefault();
+        log("⏭️ Skip link gebruikt bij:", skip.dataset.campaign);
+        showNextSection(section);
+      });
+    }
+
+    section.querySelectorAll(".btn-answer, .btn-skip").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const camp = campaigns.find(c => c.id == btn.dataset.campaign);
+        const answerValue = { answer_value: btn.dataset.answer, cid: btn.dataset.cid, sid: btn.dataset.sid };
+        log("🟢 Button klik →", answerValue);
+        const labelText = btn.textContent.toLowerCase();
+        const answerVal = (btn.dataset.answer || "").toLowerCase();
+        const isNegative = btn.classList.contains("btn-skip") ||
+          /(^|\s)(nee|geen interesse|sla over)(\s|$)/i.test(labelText) || answerVal === "no";
+        const isPositive = !isNegative;
+
+        if (isPositive) {
+          // On-demand decide if coreg is before shortform to avoid races
+          const coregBeforeShortForm = isCoregBeforeShortForm();
+          const idx = sections.indexOf(section);
+          const currentCid = String(camp.cid ?? "");
+          const hasMoreSteps = sections.slice(idx + 1).some(s => String(s.dataset.cid || "") === currentCid);
+
+          saveCoregAnswer(camp.cid, answerValue.answer_value);
+
+          if (camp.requiresLongForm === true || camp.requiresLongForm === "true") {
+            sessionStorage.setItem("requiresLongForm", "true");
+            const pending = parseJSONSafe(sessionStorage.getItem("longFormCampaigns"), []);
+            if (!pending.find(p => p.cid === camp.cid && p.sid === camp.sid)) {
+              pending.push({ cid: camp.cid, sid: camp.sid });
+              sessionStorage.setItem("longFormCampaigns", JSON.stringify(pending));
+            }
+            log("🕓 Longform-sponsor (buttons) — wachten met verzending:", camp.cid);
+            showNextSection(section);
+            return;
+          }
+
+          if (coregBeforeShortForm) {
+            ensurePreShortformBuffer();
+            const raw = sessionStorage.getItem("preShortformCoregLeads");
+            const buffer = parseJSONSafe(raw, []);
+
+            const payload = await buildCoregPayload(camp, answerValue);
+
+            if (!payload || !payload.cid || !payload.sid) {
+              warn("⚠️ Ongeldig payload — sla buffering over:", payload);
+              showNextSection(section);
+              return;
+            }
+
+            const idxBuf = buffer.findIndex(p => p.cid === payload.cid && p.sid === payload.sid);
+            if (idxBuf > -1) {
+              buffer[idxBuf] = payload;
+              log("♻️ Bestaande buffered payload geüpdatet:", payload.cid);
+            } else {
+              buffer.push(payload);
+              log("🕓 Coreg vóór short form → buffered payload:", payload.cid);
+            }
+
+            sessionStorage.setItem("preShortformCoregLeads", JSON.stringify(buffer));
+            showNextSection(section);
+            return;
+          }
+
+          // Standaard: coreg ná shortform → direct verzenden
+          if (hasMoreSteps) {
+            showNextSection(section);
+          } else {
+            const payload = await buildCoregPayload(camp, answerValue);
+            if (payload && payload.cid && payload.sid) {
+              sendLeadToDatabowl(payload);
+              sessionStorage.removeItem(`coreg_answers_${camp.cid}`);
+            } else {
+              warn("⚠️ Ongeldig payload bij directe verzending:", payload);
+            }
+            showNextSection(section);
+          }
+        } else {
+          log("⏭️ Negatief antwoord → vervolgstappen overslaan");
+          const idx = sections.indexOf(section);
+          const currentCid = String(camp.cid ?? "");
+          let j = idx + 1;
+          while (j < sections.length && String(sections[j].dataset.cid || "") === currentCid) j++;
+          section.style.display = "none";
+          if (j < sections.length) {
+            sections[j].style.display = "block";
+            updateProgressBar(j);
+          } else {
+            handleFinalCoreg();
+          }
+        }
+      });
+    });
+  });
+}
+
+window.addEventListener("DOMContentLoaded", initCoregFlow);
