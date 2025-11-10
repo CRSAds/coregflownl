@@ -61,6 +61,19 @@ function initFlowLite() {
   const allSections = Array.from(document.querySelectorAll(".flow-section, .ivr-section"));
   console.log("📦 Swipe-secties gevonden:", allSections.length);
 
+  // === Coreg-positie t.o.v. shortform bepalen ===
+const coregSection = document.getElementById("coreg-container")?.closest(".flow-section");
+const shortFormSection = document.getElementById("lead-form")?.closest(".flow-section");
+
+let coregBeforeShortForm = false;
+if (coregSection && shortFormSection) {
+  // coreg komt vóór short form als hij in DOM eerder voorkomt
+  coregBeforeShortForm = coregSection.compareDocumentPosition(shortFormSection) & Node.DOCUMENT_POSITION_FOLLOWING;
+}
+
+sessionStorage.setItem("coregBeforeShortForm", coregBeforeShortForm ? "true" : "false");
+console.log("📍 coregBeforeShortForm =", coregBeforeShortForm);
+
   const coregContainer = document.getElementById("coreg-container");
   if (coregContainer) {
     coregContainer.style.display = "block";
