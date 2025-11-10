@@ -341,47 +341,46 @@ function updateProgressBar(sectionIdx) {
         const isPositive = !isNegative;
 
         if (isPositive) {
-        const coregBeforeShortForm = sessionStorage.getItem("coregBeforeShortForm") === "true";
-        const idx = sections.indexOf(section);
-        const currentCid = String(camp.cid ?? "");
-        const hasMoreSteps = sections.slice(idx + 1).some(s => String(s.dataset.cid || "") === currentCid);
-        saveCoregAnswer(camp.cid, answerValue.answer_value);
-      
-        if (camp.requiresLongForm === true || camp.requiresLongForm === "true") {
-          sessionStorage.setItem("requiresLongForm", "true");
-          const pending = JSON.parse(sessionStorage.getItem("longFormCampaigns") || "[]");
-          if (!pending.find(p => p.cid === camp.cid && p.sid === camp.sid)) {
-            pending.push({ cid: camp.cid, sid: camp.sid });
-            sessionStorage.setItem("longFormCampaigns", JSON.stringify(pending));
+          const coregBeforeShortForm = sessionStorage.getItem("coregBeforeShortForm") === "true";
+          const idx = sections.indexOf(section);
+          const currentCid = String(camp.cid ?? "");
+          const hasMoreSteps = sections.slice(idx + 1).some(s => String(s.dataset.cid || "") === currentCid);
+          saveCoregAnswer(camp.cid, answerValue.answer_value);
+        
+          if (camp.requiresLongForm === true || camp.requiresLongForm === "true") {
+            sessionStorage.setItem("requiresLongForm", "true");
+            const pending = JSON.parse(sessionStorage.getItem("longFormCampaigns") || "[]");
+            if (!pending.find(p => p.cid === camp.cid && p.sid === camp.sid)) {
+              pending.push({ cid: camp.cid, sid: camp.sid });
+              sessionStorage.setItem("longFormCampaigns", JSON.stringify(pending));
+            }
+            log("🕓 Longform-sponsor (buttons) — wachten met verzending:", camp.cid);
+            showNextSection(section);
+            return;
           }
-          log("🕓 Longform-sponsor (buttons) — wachten met verzending:", camp.cid);
-          showNextSection(section);
-          return;
-        }
-      
-        if (coregBeforeShortForm) {
-          // Buffer coreg lead tot shortform is verzonden
-          const buffer = JSON.parse(sessionStorage.getItem("preShortformCoregLeads") || "[]");
-          const payload = await buildCoregPayload(camp, answerValue);
-          if (!buffer.find(p => p.cid === payload.cid && p.sid === payload.sid)) {
-            buffer.push(payload);
-            sessionStorage.setItem("preShortformCoregLeads", JSON.stringify(buffer));
-            log("🕓 Coreg vóór short form → buffered payload:", payload.cid);
+        
+          if (coregBeforeShortForm) {
+            // Buffer coreg lead tot shortform is verzonden
+            const buffer = JSON.parse(sessionStorage.getItem("preShortformCoregLeads") || "[]");
+            const payload = await buildCoregPayload(camp, answerValue);
+            if (!buffer.find(p => p.cid === payload.cid && p.sid === payload.sid)) {
+              buffer.push(payload);
+              sessionStorage.setItem("preShortformCoregLeads", JSON.stringify(buffer));
+              log("🕓 Coreg vóór short form → buffered payload:", payload.cid);
+            }
+            showNextSection(section);
+            return;
           }
-          showNextSection(section);
-          return;
-        }
-      
-        // Standaard: coreg ná shortform → direct verzenden
-        if (hasMoreSteps) {
-          showNextSection(section);
-        } else {
-          const payload = await buildCoregPayload(camp, answerValue);
-          sendLeadToDatabowl(payload);
-          sessionStorage.removeItem(`coreg_answers_${camp.cid}`);
-          showNextSection(section);
-        }
-      }
+        
+          // Standaard: coreg ná shortform → direct verzenden
+          if (hasMoreSteps) {
+            showNextSection(section);
+          } else {
+            const payload = await buildCoregPayload(camp, answerValue);
+            sendLeadToDatabowl(payload);
+            sessionStorage.removeItem(`coreg_answers_${camp.cid}`);
+            showNextSection(section);
+          }
         } else {
           log("⏭️ Negatief antwoord → vervolgstappen overslaan");
           const idx = sections.indexOf(section);
