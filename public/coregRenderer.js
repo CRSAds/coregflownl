@@ -314,19 +314,6 @@ async function initCoregFlow() {
     btnFinish.click();
   } else {
     warn("⚠️ Geen longform- of finish-knop gevonden");
-    sessionStorage.setItem("coregFlowCompleted", "true");
-    window.coregAnswersReady = true;
-  }
-}
-
-  // ============ Event Listeners ============
-  sections.forEach(section => {
-    const dropdown = section.querySelector(".coreg-dropdown");
-    if (dropdown) {
-      dropdown.addEventListener("change", async e => {
-        const opt = e.target.selectedOptions[0];
-        if (!opt || !opt.value) return;
-        const camp = campaigns.find(c => c.id == dropdown.dataset.campaign);
         const answerValue = { answer_value: opt.value, cid: opt.dataset.cid, sid: opt.dataset.sid };
         log("🟢 Dropdown keuze →", answerValue);
 
