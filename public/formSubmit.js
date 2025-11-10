@@ -7,6 +7,13 @@
 // 🧠 Global state initializer
 // ============================================
 window.shortFormCompleted = window.shortFormCompleted || false;
+window.DEBUG_COREG_FLOW = window.DEBUG_COREG_FLOW || false;
+window.coregDebugSessionId = window.coregDebugSessionId || (Date.now() + '-' + Math.random().toString(36).slice(2,8));
+function debugLog(...args) {
+  if (window.DEBUG_COREG_FLOW) {
+    console.log('[COREG-DEBUG][' + window.coregDebugSessionId + ']', ...args);
+  }
+}
 window.coregAnswersReady = window.coregAnswersReady || false;
 window.coregFlowCompleted = window.coregFlowCompleted || false;
 
@@ -236,14 +243,16 @@ if (!window.formSubmitInitialized) {
           sid: "34",
           is_shortform: true
         });
+        debugLog('Shortform submit: fetchLead wordt aangeroepen', basePayload);
         window.fetchLead(basePayload)
-          .then(r => console.log("✅ Shortform 925 async verzonden:", r))
-          .catch(err => console.error("❌ Fout shortform 925 async:", err));
+          .then(r => debugLog("✅ Shortform 925 async verzonden:", r))
+          .catch(err => debugLog("❌ Fout shortform 925 async:", err));
 
         // markeer voltooid
         window.shortFormCompleted = true;
+        debugLog('shortFormSubmitted event wordt getriggerd');
         document.dispatchEvent(new Event("shortFormSubmitted"));
-        console.log("✅ Shortform voltooid — event getriggerd");
+        debugLog('✅ Shortform voltooid — event getriggerd');
       } catch (err) {
         console.error("❌ Fout bij shortform:", err);
       } finally {
@@ -313,7 +322,7 @@ if (!window.formSubmitInitialized) {
   document.addEventListener("DOMContentLoaded", () => {
     document.addEventListener("shortFormSubmitted", async () => {
       try {
-        console.log("🚀 shortFormSubmitted event ontvangen — start coreg-verzending...");
+        debugLog("🚀 shortFormSubmitted event ONTVANGEN — start coreg-verzending...");
         const allKeys = Object.keys(sessionStorage).filter(k => k.startsWith("f_2014_coreg_answer_"));
         if (!allKeys.length) {
           console.log("ℹ️ Geen coreg-antwoorden gevonden om te versturen na shortform.");
@@ -334,9 +343,9 @@ if (!window.formSubmitInitialized) {
             f_2014_coreg_answer: answer,
           });
 
-          console.log(`📦 Coreg payload gereed voor verzending: CID=${cid}, SID=34`);
+          debugLog(`Coreg payload gereed voor verzending: CID=${cid}, SID=34`, payload);
           const res = await window.fetchLead(payload);
-          console.log(`✅ Coreg sponsor ${cid} lead verzonden naar Databowl:`, res);
+          debugLog(`✅ Coreg sponsor ${cid} lead verzonden naar Databowl:`, res);
         }
 
         console.log("🏁 Alle coreg-leads succesvol verzonden na shortform.");
@@ -351,7 +360,7 @@ if (!window.formSubmitInitialized) {
   // ============================================================
   setTimeout(() => {
     if (window.shortFormCompleted && !window.shortFormFlushed) {
-      console.log("🔁 Fallback: shortFormCompleted was al true → coreg flush alsnog.");
+      debugLog("🔁 Fallback: shortFormCompleted was al true → coreg flush alsnog.");
       document.dispatchEvent(new Event("shortFormSubmitted"));
       window.shortFormFlushed = true;
     }

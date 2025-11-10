@@ -95,9 +95,15 @@ async function fetchCampaigns() {
 
 // ============ Lead versturen ============
 async function sendLeadToDatabowl(payload) {
+  if (window.DEBUG_COREG_FLOW && typeof window.coregDebugSessionId !== 'undefined') {
+    console.log('[COREG-DEBUG][' + window.coregDebugSessionId + ']', 'sendLeadToDatabowl() aangeroepen', payload);
+  }
   log("🚦 sendLeadToDatabowl() aangeroepen:", payload);
   try {
     const result = await window.fetchLead(payload);
+    if (window.DEBUG_COREG_FLOW && typeof window.coregDebugSessionId !== 'undefined') {
+      console.log('[COREG-DEBUG][' + window.coregDebugSessionId + ']', 'Lead verstuurd via fetchLead', result);
+    }
     log("✅ Lead verstuurd via fetchLead:", result);
     return result;
   } catch (e) {
@@ -109,6 +115,9 @@ async function sendLeadToDatabowl(payload) {
 // ✅ buildCoregPayload — async versie met correcte CID/SID & await
 // ============================================================
 async function buildCoregPayload(campaign, answerValue) {
+  if (window.DEBUG_COREG_FLOW && typeof window.coregDebugSessionId !== 'undefined') {
+    console.log('[COREG-DEBUG][' + window.coregDebugSessionId + ']', 'buildCoregPayload() input', { campaign, answerValue });
+  }
   log("🧩 buildCoregPayload() → input:", { campaign, answerValue });
 
   if (answerValue?.cid === "undefined" || !answerValue?.cid) {
@@ -142,6 +151,9 @@ async function buildCoregPayload(campaign, answerValue) {
   const dropdownAnswer = sessionStorage.getItem(`f_2575_coreg_answer_dropdown_${cid}`);
   if (dropdownAnswer) payload.f_2575_coreg_answer_dropdown = dropdownAnswer;
 
+  if (window.DEBUG_COREG_FLOW && typeof window.coregDebugSessionId !== 'undefined') {
+    console.log('[COREG-DEBUG][' + window.coregDebugSessionId + ']', 'buildCoregPayload() output', payload);
+  }
   log("📦 buildCoregPayload() → output:", payload);
   return payload;
 }
