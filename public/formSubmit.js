@@ -1,67 +1,21 @@
 // =============================================================
-// ✅ formSubmit.js — stabiele versie met correcte eventvolgorde
-// shortform (925) + co-sponsors + longform + coreg flush + debug
+// ✅ formSubmit.js — unified versie met auto-jump DOB, IP-tracking,
+// shortform (925) + co-sponsors + longform + CID/SID fix + DEBUG toggle
 // =============================================================
-
-// ============================================
-// 🧠 Global state initializer
-// ============================================
-window.shortFormCompleted = window.shortFormCompleted || false;
-window.DEBUG_COREG_FLOW = window.DEBUG_COREG_FLOW || false;
-window.coregDebugSessionId = window.coregDebugSessionId || (Date.now() + '-' + Math.random().toString(36).slice(2,8));
-function debugLog(...args) {
-  if (window.DEBUG_COREG_FLOW) {
-    console.log('[COREG-DEBUG][' + window.coregDebugSessionId + ']', ...args);
-  }
-}
-window.coregAnswersReady = window.coregAnswersReady || false;
-window.coregFlowCompleted = window.coregFlowCompleted || false;
 
 if (!window.formSubmitInitialized) {
   window.formSubmitInitialized = true;
   window.submittedCampaigns = window.submittedCampaigns || new Set();
 
-  // 🔧 Logging toggle
-  const DEBUG = true; // ← op false in productie
+  // 🔧 Toggle logging hier
+  const DEBUG = false; // ← zet op false in productie en true bij testen
   const log = (...args) => { if (DEBUG) console.log(...args); };
   const warn = (...args) => { if (DEBUG) console.warn(...args); };
   const error = (...args) => { if (DEBUG) console.error(...args); };
 
-  // ============================================================
-  // 🔹 flushQueuedCoregLeads() — verzend bewaarde coreg antwoorden
-  // ============================================================
-  window.flushQueuedCoregLeads = async function flushQueuedCoregLeads() {
-    console.log("🚀 flushQueuedCoregLeads() gestart...");
-    const keys = Object.keys(sessionStorage).filter(k => k.startsWith("f_2014_coreg_answer_"));
-    if (!keys.length) {
-      console.log("ℹ️ Geen coreg antwoorden om te flushen.");
-      return;
-    }
-
-    const pendingLongForms = JSON.parse(sessionStorage.getItem("longFormCampaigns") || "[]");
-    for (const key of keys) {
-      const cid = key.replace("f_2014_coreg_answer_", "");
-      const isLongForm = pendingLongForms.some(p => String(p.cid) === cid);
-      if (isLongForm) continue;
-
-      const answer = sessionStorage.getItem(key);
-      const payload = await window.buildPayload({
-        cid,
-        sid: "34",
-        is_shortform: false,
-        f_2014_coreg_answer: answer,
-      });
-
-      console.log(`📬 Flush coreg-lead ${cid}...`);
-      const res = await window.fetchLead(payload);
-      if (res && !res.skipped) sessionStorage.removeItem(key);
-    }
-    console.log("🏁 flushQueuedCoregLeads() voltooid.");
-  };
-
-  // ============================================================
+  // -----------------------------------------------------------
   // 🔹 Tracking opslaan bij pageload
-  // ============================================================
+  // -----------------------------------------------------------
   document.addEventListener("DOMContentLoaded", () => {
     const urlParams = new URLSearchParams(window.location.search);
     ["t_id", "aff_id", "sub_id", "sub2", "offer_id"].forEach(key => {
@@ -70,9 +24,9 @@ if (!window.formSubmitInitialized) {
     });
   });
 
-  // ============================================================
+  // -----------------------------------------------------------
   // 🔹 IP ophalen (1x per sessie)
-  // ============================================================
+  // -----------------------------------------------------------
   async function getIpOnce() {
     let ip = sessionStorage.getItem("user_ip");
     if (ip) return ip;
@@ -87,66 +41,72 @@ if (!window.formSubmitInitialized) {
     return ip;
   }
 
-  // ============================================================
-  // 🔹 Payload opbouwen
-  // ============================================================
-  async function buildPayload(campaign = {}) {
-    const ip = await getIpOnce();
-    const t_id = sessionStorage.getItem("t_id") || crypto.randomUUID();
-    const aff_id = sessionStorage.getItem("aff_id") || "unknown";
-    const offer_id = sessionStorage.getItem("offer_id") || "unknown";
-    const sub_id = sessionStorage.getItem("sub_id") || "unknown";
-    const sub2 = sessionStorage.getItem("sub2") || "unknown";
-    const campaignUrl = `${window.location.origin}${window.location.pathname}?status=online`;
+// -----------------------------------------------------------
+// 🔹 Payload opbouwen
+// -----------------------------------------------------------
+async function buildPayload(campaign = {}) {
+  const ip = await getIpOnce();
 
-    // ✅ DOB parsing
-    const dobValue = sessionStorage.getItem("dob");
-    let dob = "";
-    if (dobValue && dobValue.includes("/")) {
-      const [dd, mm, yyyy] = dobValue.split("/");
-      if (dd && mm && yyyy) dob = `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
-    }
+  const t_id = sessionStorage.getItem("t_id") || crypto.randomUUID();
+  const aff_id = sessionStorage.getItem("aff_id") || "unknown";
+  const offer_id = sessionStorage.getItem("offer_id") || "unknown";
+  const sub_id = sessionStorage.getItem("sub_id") || "unknown";
+  const sub2 = sessionStorage.getItem("sub2") || "unknown";
+  const campaignUrl = `${window.location.origin}${window.location.pathname}?status=online`;
 
-    const cid = campaign.cid || null;
-    const sid = campaign.sid || null;
-    const optindate = new Date().toISOString().split(".")[0] + "+0000";
-
-    const payload = {
-      cid,
-      sid,
-      gender: sessionStorage.getItem("gender") || "",
-      firstname: sessionStorage.getItem("firstname") || "",
-      lastname: sessionStorage.getItem("lastname") || "",
-      email: sessionStorage.getItem("email") || "",
-      postcode: sessionStorage.getItem("postcode") || "",
-      straat: sessionStorage.getItem("straat") || "",
-      huisnummer: sessionStorage.getItem("huisnummer") || "",
-      woonplaats: sessionStorage.getItem("woonplaats") || "",
-      telefoon: sessionStorage.getItem("telefoon") || "",
-      dob,
-      t_id,
-      aff_id,
-      offer_id,
-      sub_id,
-      sub2,
-      f_1453_campagne_url: campaignUrl,
-      f_17_ipaddress: ip,
-      f_55_optindate: optindate,
-      is_shortform: campaign.is_shortform || false,
-    };
-
-    if (campaign.f_2014_coreg_answer)
-      payload.f_2014_coreg_answer = campaign.f_2014_coreg_answer;
-    if (campaign.f_2575_coreg_answer_dropdown)
-      payload.f_2575_coreg_answer_dropdown = campaign.f_2575_coreg_answer_dropdown;
-
-    return payload;
+  // ✅ DOB parsing
+  const dobValue = sessionStorage.getItem("dob");
+  let dob = "";
+  if (dobValue && dobValue.includes("/")) {
+    const [dd, mm, yyyy] = dobValue.split("/");
+    if (dd && mm && yyyy) dob = `${yyyy}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")}`;
   }
+
+  // ✅ CID/SID fix
+  let cid = campaign.cid;
+  let sid = campaign.sid;
+  if (cid === "undefined" || cid === undefined || cid === "") cid = null;
+  if (sid === "undefined" || sid === undefined || sid === "") sid = null;
+
+  // ✅ Optindate (UTC ISO +0000)
+  const optindate = new Date().toISOString().split(".")[0] + "+0000";
+
+  const payload = {
+    cid,
+    sid,
+    gender: sessionStorage.getItem("gender") || "",
+    firstname: sessionStorage.getItem("firstname") || "",
+    lastname: sessionStorage.getItem("lastname") || "",
+    email: sessionStorage.getItem("email") || "",
+    postcode: sessionStorage.getItem("postcode") || "",
+    straat: sessionStorage.getItem("straat") || "",
+    huisnummer: sessionStorage.getItem("huisnummer") || "",
+    woonplaats: sessionStorage.getItem("woonplaats") || "",
+    telefoon: sessionStorage.getItem("telefoon") || "",
+    dob,
+    t_id,
+    aff_id,
+    offer_id,
+    sub_id,
+    sub2,
+    f_1453_campagne_url: campaignUrl,
+    f_17_ipaddress: ip,
+    f_55_optindate: optindate, // ✅ nieuw toegevoegd
+    is_shortform: campaign.is_shortform || false,
+  };
+
+  if (campaign.f_2014_coreg_answer)
+    payload.f_2014_coreg_answer = campaign.f_2014_coreg_answer;
+  if (campaign.f_2575_coreg_answer_dropdown)
+    payload.f_2575_coreg_answer_dropdown = campaign.f_2575_coreg_answer_dropdown;
+
+  return payload;
+}
   window.buildPayload = buildPayload;
 
-  // ============================================================
+  // -----------------------------------------------------------
   // 🔹 Lead versturen
-  // ============================================================
+  // -----------------------------------------------------------
   async function fetchLead(payload) {
     if (!payload || !payload.cid || !payload.sid) {
       error("❌ fetchLead: ontbrekende cid/sid in payload:", payload);
@@ -167,7 +127,7 @@ if (!window.formSubmitInitialized) {
       try { result = text ? JSON.parse(text) : {}; } catch { result = { raw: text }; }
       log(`📨 Lead verstuurd naar ${payload.cid}/${payload.sid}:`, result);
       window.submittedCampaigns.add(key);
-      return { success: true, result };
+      return result;
     } catch (err) {
       error("❌ Fout bij lead versturen:", err);
       return { success: false, error: err.message };
@@ -175,9 +135,9 @@ if (!window.formSubmitInitialized) {
   }
   window.fetchLead = fetchLead;
 
-  // ============================================================
-  // 🔹 DOB veld — autojump
-  // ============================================================
+  // -----------------------------------------------------------
+  // 🔹 Slim DOB veld — autojump
+  // -----------------------------------------------------------
   document.addEventListener("DOMContentLoaded", () => {
     const dobInput = document.getElementById("dob");
     if (!dobInput) return;
@@ -203,28 +163,43 @@ if (!window.formSubmitInitialized) {
 
     dobInput.addEventListener("input", (e) => {
       let val = e.target.value.replace(/\D/g, "").slice(0, 8);
+      let jumpToMonth = false, jumpToYear = false;
+      if (val.length === 1 && parseInt(val[0], 10) >= 4) { val = "0" + val; jumpToMonth = true; }
+      if (val.length === 3 && parseInt(val[2], 10) >= 2) { val = val.slice(0,2) + "0" + val.slice(2); jumpToYear = true; }
+
       const formatted = format(val);
       e.target.value = formatted;
       sessionStorage.setItem("dob", formatted.replace(/\s/g, ""));
+      if (jumpToMonth && val.length === 2) {
+        const pos = formatted.indexOf("/") + 3; e.target.setSelectionRange(pos, pos);
+      } else if (jumpToYear && val.length === 4) {
+        const pos = formatted.lastIndexOf("/") + 3; e.target.setSelectionRange(pos, pos);
+      }
     });
   });
 
-  // ============================================================
-  // 🔹 Shortform
-  // ============================================================
+  // -----------------------------------------------------------
+  // 🔹 Shortform — volledig async
+  // -----------------------------------------------------------
   document.addEventListener("DOMContentLoaded", () => {
     const form = document.getElementById("lead-form");
     if (!form) return;
+
     const btn = form.querySelector(".flow-next, button[type='submit']");
     if (!btn) return;
+
     let submitting = false;
 
     const handleShortForm = async (e) => {
       e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+
       if (!form.checkValidity()) {
         form.reportValidity();
         return;
       }
+
       if (submitting) return;
       submitting = true;
       btn.disabled = true;
@@ -234,27 +209,60 @@ if (!window.formSubmitInitialized) {
         if (genderEl) sessionStorage.setItem("gender", genderEl.value);
         ["firstname", "lastname", "email", "dob"].forEach(id => {
           const el = document.getElementById(id);
-          if (el) sessionStorage.setItem(id, el.value.trim());
+          if (!el) return;
+          let v = (el.value || "").trim();
+          if (id === "dob") v = v.replace(/\s/g, "");
+          sessionStorage.setItem(id, v);
         });
 
-        // shortform lead
-        const basePayload = await window.buildPayload({
-          cid: "925",
-          sid: "34",
-          is_shortform: true
-        });
-        debugLog('Shortform submit: fetchLead wordt aangeroepen', basePayload);
-        window.fetchLead(basePayload)
-          .then(r => debugLog("✅ Shortform 925 async verzonden:", r))
-          .catch(err => debugLog("❌ Fout shortform 925 async:", err));
+        if (typeof getIpOnce === "function") getIpOnce();
 
-        // markeer voltooid
-        window.shortFormCompleted = true;
-        debugLog('shortFormSubmitted event wordt getriggerd');
+        (async () => {
+          try {
+            const basePayload = await window.buildPayload({ cid: "925", sid: "34", is_shortform: true });
+            window.fetchLead(basePayload)
+              .then(r => log("✅ Shortform 925 async verzonden:", r))
+              .catch(err => error("❌ Fout shortform 925 async:", err));
+
+            const accepted = sessionStorage.getItem("sponsorsAccepted") === "true";
+            if (accepted) {
+              const res = await fetch("https://globalcoregflow-nl.vercel.app/api/cosponsors.js", { cache: "no-store" });
+              const json = await res.json();
+              if (Array.isArray(json.data) && json.data.length) {
+                log(`📡 Verstuur ${json.data.length} co-sponsors async...`);
+                Promise.allSettled(json.data.map(async s => {
+                  if (!s?.cid || !s?.sid) return;
+                  const spPayload = await window.buildPayload({ cid: s.cid, sid: s.sid, is_shortform: true });
+                  return window.fetchLead(spPayload);
+                }))
+                .then(() => log("✅ Co-sponsors klaar (async)"))
+                .catch(err => warn("⚠️ Co-sponsors fout (async):", err));
+              } else {
+                log("ℹ️ Geen actieve co-sponsors gevonden");
+              }
+            } else {
+              warn("⚠️ Sponsors niet geaccepteerd — geen co-sponsors verzonden");
+            }
+          } catch (err) {
+            error("💥 Async shortform fout:", err);
+          }
+        })();
+
         document.dispatchEvent(new Event("shortFormSubmitted"));
-        debugLog('✅ Shortform voltooid — event getriggerd');
+        // 🔁 Verstuur buffered coreg-leads die vóór shortform zaten
+        (async () => {
+          const buffered = JSON.parse(sessionStorage.getItem("preShortformCoregLeads") || "[]");
+          if (Array.isArray(buffered) && buffered.length) {
+            console.log(`🚀 Verstuur ${buffered.length} buffered coreg-leads (voor shortform)...`);
+            for (const p of buffered) {
+              await window.fetchLead(p);
+            }
+            sessionStorage.removeItem("preShortformCoregLeads");
+          }
+        })();
+        log("➡️ Flow direct vervolgd (fire-and-forget)");
       } catch (err) {
-        console.error("❌ Fout bij shortform:", err);
+        error("❌ Fout bij start shortform async:", err);
       } finally {
         submitting = false;
         btn.disabled = false;
@@ -262,14 +270,19 @@ if (!window.formSubmitInitialized) {
     };
 
     btn.addEventListener("click", handleShortForm, true);
+    form.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") handleShortForm(e);
+    }, true);
   });
 
-  // ============================================================
-  // 🔹 Longform
-  // ============================================================
+  // -----------------------------------------------------------
+  // 🔹 Longform — volledig async
+  // -----------------------------------------------------------
   document.addEventListener("click", async (e) => {
     if (!e.target || !e.target.matches("#submit-long-form")) return;
     e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
 
     const form = document.getElementById("long-form");
     if (!form) return;
@@ -293,6 +306,8 @@ if (!window.formSubmitInitialized) {
       return;
     }
 
+    if (typeof getIpOnce === "function") getIpOnce();
+
     (async () => {
       try {
         await Promise.allSettled(pending.map(async camp => {
@@ -314,55 +329,18 @@ if (!window.formSubmitInitialized) {
     })();
 
     document.dispatchEvent(new Event("longFormSubmitted"));
+    log("➡️ Flow direct vervolgd (longform fire-and-forget)");
   });
 
-  // ============================================================
-  // 📡 shortFormSubmitted listener — binnen DOMContentLoaded!
-  // ============================================================
+  // -----------------------------------------------------------
+  // 🔹 Sponsor akkoord
+  // -----------------------------------------------------------
   document.addEventListener("DOMContentLoaded", () => {
-    document.addEventListener("shortFormSubmitted", async () => {
-      try {
-        debugLog("🚀 shortFormSubmitted event ONTVANGEN — start coreg-verzending...");
-        const allKeys = Object.keys(sessionStorage).filter(k => k.startsWith("f_2014_coreg_answer_"));
-        if (!allKeys.length) {
-          console.log("ℹ️ Geen coreg-antwoorden gevonden om te versturen na shortform.");
-          return;
-        }
-
-        const pendingLongForms = JSON.parse(sessionStorage.getItem("longFormCampaigns") || "[]");
-        for (const key of allKeys) {
-          const cid = key.replace("f_2014_coreg_answer_", "");
-          const isLongForm = pendingLongForms.some(p => String(p.cid) === cid);
-          if (isLongForm) continue;
-
-          const answer = sessionStorage.getItem(key) || "";
-          const payload = await window.buildPayload({
-            cid,
-            sid: "34",
-            is_shortform: false,
-            f_2014_coreg_answer: answer,
-          });
-
-          debugLog(`Coreg payload gereed voor verzending: CID=${cid}, SID=34`, payload);
-          const res = await window.fetchLead(payload);
-          debugLog(`✅ Coreg sponsor ${cid} lead verzonden naar Databowl:`, res);
-        }
-
-        console.log("🏁 Alle coreg-leads succesvol verzonden na shortform.");
-      } catch (err) {
-        console.error("💥 Fout bij coreg-verzending na shortform:", err);
-      }
+    const acceptBtn = document.getElementById("accept-sponsors-btn");
+    if (!acceptBtn) return;
+    acceptBtn.addEventListener("click", () => {
+      sessionStorage.setItem("sponsorsAccepted", "true");
+      log("✅ Sponsors akkoord");
     });
   });
-
-  // ============================================================
-  // 🔁 Fallback-trigger — shortform was al klaar
-  // ============================================================
-  setTimeout(() => {
-    if (window.shortFormCompleted && !window.shortFormFlushed) {
-      debugLog("🔁 Fallback: shortFormCompleted was al true → coreg flush alsnog.");
-      document.dispatchEvent(new Event("shortFormSubmitted"));
-      window.shortFormFlushed = true;
-    }
-  }, 1000);
 }
