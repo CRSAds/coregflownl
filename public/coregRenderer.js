@@ -3,7 +3,7 @@
 // =============================================================
 
 if (typeof window.API_COREG === "undefined") {
-  window.API_COREG = "https://coregflownl.vercel.app/api/coreg.js";
+  window.API_COREG = "https://globalcoregflow-nl.vercel.app/api/coreg.js";
 }
 const API_COREG = window.API_COREG;
 
