@@ -358,7 +358,7 @@ if (window.shortFormCompleted === true) {
 
     const skip = section.querySelector(".skip-link");
     if (skip) {
-      skip.addEventListener("click", e => {
+      skip.addEventListener("click", async e => {
         e.preventDefault();
         log("⏭️ Skip link gebruikt bij:", skip.dataset.campaign);
         showNextSection(section);
