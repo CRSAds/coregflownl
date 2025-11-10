@@ -12,7 +12,7 @@ const API_COREG = window.API_COREG;
 // =============================================================
 // 🔧 Logging toggle
 // =============================================================
-const DEBUG = false; // ← Zet op true tijdens debug en false in productie
+const DEBUG = true; // ← Zet op true tijdens debug en false in productie
 const log = (...args) => { if (DEBUG) console.log(...args); };
 const warn = (...args) => { if (DEBUG) console.warn(...args); };
 const error = (...args) => { if (DEBUG) console.error(...args); };
