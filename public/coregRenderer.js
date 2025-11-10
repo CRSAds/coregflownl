@@ -353,7 +353,10 @@ async function initCoregFlow() {
         } else {
           const payload = await buildCoregPayload(camp, answerValue);
 
-          if (window.shortFormCompleted === true) {
+          if (window.DEBUG_COREG_FLOW && typeof window.coregDebugSessionId !== 'undefined') {
+  console.log('[COREG-DEBUG][' + window.coregDebugSessionId + ']', 'window.shortFormCompleted bij coreg-klik:', window.shortFormCompleted);
+}
+if (window.shortFormCompleted === true) {
           sendLeadToDatabowl(payload);
           log(`📨 Coreg ${camp.cid} direct verstuurd (shortform al voltooid)`);
           sessionStorage.removeItem(`coreg_answers_${camp.cid}`);
@@ -409,7 +412,10 @@ async function initCoregFlow() {
           } else {
             const payload = await buildCoregPayload(camp, answerValue);
 
-            if (window.shortFormCompleted === true) {
+            if (window.DEBUG_COREG_FLOW && typeof window.coregDebugSessionId !== 'undefined') {
+  console.log('[COREG-DEBUG][' + window.coregDebugSessionId + ']', 'window.shortFormCompleted bij coreg-klik:', window.shortFormCompleted);
+}
+if (window.shortFormCompleted === true) {
             sendLeadToDatabowl(payload);
             log(`📨 Coreg ${camp.cid} direct verstuurd (shortform al voltooid)`);
             sessionStorage.removeItem(`coreg_answers_${camp.cid}`);
