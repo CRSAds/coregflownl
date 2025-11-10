@@ -2,6 +2,12 @@
 // ✅ initFlow-lite.js — stabiele versie met shortform & longform event flow
 // =============================================================
 
+// 🔧 Logging toggle
+const DEBUG_FLOW = false; // ← Zet op false in productie, true bij testen
+const log = (...args) => { if (DEBUG_FLOW) console.log(...args); };
+const warn = (...args) => { if (DEBUG_FLOW) console.warn(...args); };
+const error = (...args) => { if (DEBUG_FLOW) console.error(...args); };
+
 window.addEventListener("DOMContentLoaded", initFlowLite);
 
 // =============================================================
@@ -12,7 +18,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const status = params.get("status");
 
   if (status !== "online" && status !== "live") {
-    console.warn("🚫 Geen geldige statusparameter gevonden — toegang geweigerd.");
+    warn("🚫 Geen geldige statusparameter gevonden — toegang geweigerd.");
 
     document.querySelectorAll("section, footer, .sp-section, #dynamic-footer").forEach(el => {
       el.style.display = "none";
@@ -52,32 +58,32 @@ document.addEventListener("DOMContentLoaded", () => {
 // 🚀 Hoofdinit — flow controller
 // =============================================================
 function initFlowLite() {
-  console.log("🚀 initFlow-lite.js gestart");
+  log("🚀 initFlow-lite.js gestart");
 
   const params = new URLSearchParams(window.location.search);
   const status = params.get("status") || "online";
 
   // 1️⃣ Secties verzamelen
   const allSections = Array.from(document.querySelectorAll(".flow-section, .ivr-section"));
-  console.log("📦 Swipe-secties gevonden:", allSections.length);
+  log("📦 Swipe-secties gevonden:", allSections.length);
 
   // === Coreg-positie t.o.v. shortform bepalen ===
-const coregSection = document.getElementById("coreg-container")?.closest(".flow-section");
-const shortFormSection = document.getElementById("lead-form")?.closest(".flow-section");
+  const coregSection = document.getElementById("coreg-container")?.closest(".flow-section");
+  const shortFormSection = document.getElementById("lead-form")?.closest(".flow-section");
 
-let coregBeforeShortForm = false;
-if (coregSection && shortFormSection) {
-  // coreg komt vóór short form als hij in DOM eerder voorkomt
-  coregBeforeShortForm = coregSection.compareDocumentPosition(shortFormSection) & Node.DOCUMENT_POSITION_FOLLOWING;
-}
+  let coregBeforeShortForm = false;
+  if (coregSection && shortFormSection) {
+    // coreg komt vóór short form als hij in DOM eerder voorkomt
+    coregBeforeShortForm = coregSection.compareDocumentPosition(shortFormSection) & Node.DOCUMENT_POSITION_FOLLOWING;
+  }
 
-sessionStorage.setItem("coregBeforeShortForm", coregBeforeShortForm ? "true" : "false");
-console.log("📍 coregBeforeShortForm =", coregBeforeShortForm);
+  sessionStorage.setItem("coregBeforeShortForm", coregBeforeShortForm ? "true" : "false");
+  log("📍 coregBeforeShortForm =", coregBeforeShortForm);
 
   const coregContainer = document.getElementById("coreg-container");
   if (coregContainer) {
     coregContainer.style.display = "block";
-    console.log("✅ coreg-container zichtbaar gehouden");
+    log("✅ coreg-container zichtbaar gehouden");
   }
 
   allSections.forEach(el => (el.style.display = "none"));
@@ -87,19 +93,19 @@ console.log("📍 coregBeforeShortForm =", coregBeforeShortForm);
   if (firstVisible) {
     firstVisible.style.display = "block";
     reloadImages(firstVisible);
-    console.log("✅ Eerste sectie getoond:", firstVisible.className);
+    log("✅ Eerste sectie getoond:", firstVisible.className);
   } else {
-    console.warn("⚠️ Geen zichtbare secties gevonden bij start");
+    warn("⚠️ Geen zichtbare secties gevonden bij start");
   }
 
   // 3️⃣ Statusspecifieke footers
   if (status === "online") {
-    console.log("🌐 Status = ONLINE → IVR-secties overslaan + footeronline tonen");
+    log("🌐 Status = ONLINE → IVR-secties overslaan + footeronline tonen");
     document.querySelectorAll(".ivr-section").forEach(el => (el.style.display = "none"));
     document.querySelectorAll(".footeronline").forEach(el => (el.style.display = "block"));
     document.querySelectorAll(".footerlive").forEach(el => (el.style.display = "none"));
   } else if (status === "live") {
-    console.log("📺 Status = LIVE → IVR actief + footerlive tonen");
+    log("📺 Status = LIVE → IVR actief + footerlive tonen");
     document.querySelectorAll(".footeronline").forEach(el => (el.style.display = "none"));
     document.querySelectorAll(".footerlive").forEach(el => (el.style.display = "block"));
   }
@@ -110,7 +116,7 @@ console.log("📍 coregBeforeShortForm =", coregBeforeShortForm);
     btn.addEventListener("click", () => {
       // 🚫 Laat shortform-knoppen met rust
       if (btn.closest("#lead-form")) {
-        console.log("⛔️ flow-next binnen shortform → overgeslagen (handled door formSubmit.js)");
+        log("⛔️ flow-next binnen shortform → overgeslagen (handled door formSubmit.js)");
         return;
       }
 
@@ -129,13 +135,13 @@ console.log("📍 coregBeforeShortForm =", coregBeforeShortForm);
       if (next && next.id === "long-form-section") {
         const showLongForm = sessionStorage.getItem("requiresLongForm") === "true";
         if (!showLongForm) {
-          console.log("🚫 Geen longform-campagnes positief beantwoord → overslaan");
+          log("🚫 Geen longform-campagnes positief beantwoord → overslaan");
           next = next.nextElementSibling;
           while (next && next.classList.contains("ivr-section") && status === "online") {
             next = next.nextElementSibling;
           }
         } else {
-          console.log("✅ Positieve longform-campagne gevonden → tonen");
+          log("✅ Positieve longform-campagne gevonden → tonen");
         }
       }
 
@@ -144,25 +150,25 @@ console.log("📍 coregBeforeShortForm =", coregBeforeShortForm);
         next.style.display = "block";
         reloadImages(next);
         window.scrollTo({ top: 0, behavior: "smooth" });
-        console.log("➡️ Volgende sectie getoond:", next.className);
+        log("➡️ Volgende sectie getoond:", next.className);
 
         // 🎁 Sovendus starten
         if (next.id === "sovendus-section" && typeof window.setupSovendus === "function") {
           if (!window.sovendusStarted) {
             window.sovendusStarted = true;
-            console.log("🎁 Sovendus-sectie getoond → setupSovendus()");
+            log("🎁 Sovendus-sectie getoond → setupSovendus()");
             window.setupSovendus();
           }
         }
       } else {
-        console.log("🏁 Einde van de flow bereikt");
+        log("🏁 Einde van de flow bereikt");
       }
     });
   });
 
   // 5️⃣ Automatische doorgang na longform
   document.addEventListener("longFormSubmitted", () => {
-    console.log("✅ Longform voltooid → door naar volgende sectie");
+    log("✅ Longform voltooid → door naar volgende sectie");
     const current = document.getElementById("long-form")?.closest(".flow-section") || document.getElementById("long-form");
     if (!current) return;
 
@@ -176,16 +182,16 @@ console.log("📍 coregBeforeShortForm =", coregBeforeShortForm);
       next.style.display = "block";
       reloadImages(next);
       window.scrollTo({ top: 0, behavior: "smooth" });
-      console.log("➡️ Volgende sectie getoond:", next.className);
+      log("➡️ Volgende sectie getoond:", next.className);
       startSovendusIfNeeded(next);
     } else {
-      console.log("🏁 Einde flow na longform");
+      log("🏁 Einde flow na longform");
     }
   });
 
   // 6️⃣ Automatische doorgang na shortform
   document.addEventListener("shortFormSubmitted", () => {
-    console.log("✅ Shortform voltooid → door naar volgende sectie");
+    log("✅ Shortform voltooid → door naar volgende sectie");
     const current = document.getElementById("lead-form")?.closest(".flow-section") || document.getElementById("lead-form");
     if (!current) return;
 
@@ -199,22 +205,21 @@ console.log("📍 coregBeforeShortForm =", coregBeforeShortForm);
       next.style.display = "block";
       reloadImages(next);
       window.scrollTo({ top: 0, behavior: "smooth" });
-      console.log("➡️ Volgende sectie getoond:", next.className);
+      log("➡️ Volgende sectie getoond:", next.className);
       startSovendusIfNeeded(next);
     } else {
-      console.log("🏁 Einde flow na shortform");
+      log("🏁 Einde flow na shortform");
     }
   });
 
   // 7️⃣ System check
-  console.groupCollapsed("✅ Global CoregFlow System Check");
-  console.log("formSubmit.js geladen:", !!window.buildPayload);
-  console.log("coregRenderer.js geladen:", typeof window.initCoregFlow === "function");
-  console.log("progressbar-anim.js geladen:", typeof window.animateProgressBar === "function");
-  console.log("Sovendus.js geladen:", typeof window.setupSovendus === "function");
-  console.log("initFlow-lite.js actief");
-  console.log("IVR-secties:", document.querySelectorAll(".ivr-section").length);
-  console.groupEnd();
+  log("✅ Global CoregFlow System Check →", {
+    formSubmit: !!window.buildPayload,
+    coregRenderer: typeof window.initCoregFlow === "function",
+    progressbar: typeof window.animateProgressBar === "function",
+    sovendus: typeof window.setupSovendus === "function",
+    ivrSections: document.querySelectorAll(".ivr-section").length,
+  });
 }
 
 // =============================================================
@@ -229,14 +234,14 @@ function reloadImages(section) {
   });
   window.scrollBy(0, 1);
   setTimeout(() => window.scrollBy(0, -1), 150);
-  console.log("🖼️ Afbeeldingen geforceerd geladen:", section.className);
+  log("🖼️ Afbeeldingen geforceerd geladen:", section.className);
 }
 
 function startSovendusIfNeeded(section) {
   if (section.id === "sovendus-section" && typeof window.setupSovendus === "function") {
     if (!window.sovendusStarted) {
       window.sovendusStarted = true;
-      console.log("🎁 Sovendus gestart bij sectie:", section.id);
+      log("🎁 Sovendus gestart bij sectie:", section.id);
       window.setupSovendus();
     }
   }
