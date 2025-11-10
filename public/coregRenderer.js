@@ -235,61 +235,71 @@ async function initCoregFlow() {
   const sections = Array.from(sectionsContainer.querySelectorAll(".coreg-section"));
   sections.forEach((s, i) => (s.style.display = i === 0 ? "block" : "none"));
 
-  // Event handlers
-  sections.forEach(section => {
-    section.querySelectorAll(".btn-answer, .btn-skip").forEach(btn => {
-      btn.addEventListener("click", async () => {
-        const camp = campaigns.find(c => c.id == btn.dataset.campaign);
-        const answerValue = { answer_value: btn.dataset.answer, cid: btn.dataset.cid, sid: btn.dataset.sid };
-        const labelText = btn.textContent.toLowerCase();
-        const answerVal = (btn.dataset.answer || "").toLowerCase();
-        const isNegative = btn.classList.contains("btn-skip") ||
-          /(^|\s)(nee|geen interesse|sla over)(\s|$)/i.test(labelText) || answerVal === "no";
-        const isPositive = !isNegative;
+// =============================================================
+// 🔹 Event handlers (vervang dit hele stuk in coregRenderer.js)
+// =============================================================
+sections.forEach((section, sectionIndex) => {
+  section.querySelectorAll(".btn-answer, .btn-skip").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const camp = campaigns.find(c => c.id == btn.dataset.campaign);
+      const answerValue = { answer_value: btn.dataset.answer, cid: btn.dataset.cid, sid: btn.dataset.sid };
+      const labelText = btn.textContent.toLowerCase();
+      const answerVal = (btn.dataset.answer || "").toLowerCase();
+      const isNegative = btn.classList.contains("btn-skip") ||
+        /(^|\s)(nee|geen interesse|sla over)(\s|$)/i.test(labelText) || answerVal === "no";
+      const isPositive = !isNegative;
 
-        const idx = sections.indexOf(section);
-        section.style.display = "none";
+      // Altijd huidige sectie verbergen
+      section.style.display = "none";
 
-        if (!isPositive) {
-          if (idx < sections.length - 1) sections[idx + 1].style.display = "block";
-          else handleFinalCoreg();
-          return;
-        }
-
-        const coregBeforeShortForm = isCoregBeforeShortForm();
-        const payload = await buildCoregPayload(camp, answerValue);
-
-        if (!payload.cid) payload.cid = camp.cid;
-        if (!payload.sid) payload.sid = camp.sid;
-
-        if (camp.requiresLongForm) {
-          let pending = parseJSONSafe(sessionStorage.getItem("longFormCampaigns"), []);
-          if (!pending.find(p => p.cid === camp.cid && p.sid === camp.sid)) {
-            pending.push({ cid: camp.cid, sid: camp.sid });
-            sessionStorage.setItem("longFormCampaigns", JSON.stringify(pending));
-          }
-        } else if (coregBeforeShortForm) {
-          const raw = sessionStorage.getItem("preShortformCoregLeads");
-          const buffer = parseJSONSafe(raw, []);
-          const idxBuf = buffer.findIndex(p => p.cid === payload.cid && p.sid === payload.sid);
-          if (idxBuf > -1) buffer[idxBuf] = payload;
-          else buffer.push(payload);
-          sessionStorage.setItem("preShortformCoregLeads", JSON.stringify(buffer));
-          log("🕓 Coreg vóór short form → buffered:", payload.cid, payload.sid);
-        } else {
-          sendLeadToDatabowl(payload);
-        }
-
-        if (idx < sections.length - 1) {
-          sections[idx + 1].style.display = "block";
-          log(`➡️ Volgende coreg-sectie getoond (${idx + 1}/${sections.length})`);
+      // Functie om veilig de volgende sectie te tonen via index
+      function showNextSection() {
+        const nextSection = sections[sectionIndex + 1];
+        if (nextSection) {
+          nextSection.style.display = "block";
+          log(`➡️ Volgende coreg-sectie getoond (${sectionIndex + 2}/${sections.length})`);
         } else {
           handleFinalCoreg();
         }
-      });
+      }
+
+      if (!isPositive) {
+        showNextSection();
+        return;
+      }
+
+      const coregBeforeShortForm = isCoregBeforeShortForm();
+      const payload = await buildCoregPayload(camp, answerValue);
+
+      if (!payload.cid) payload.cid = camp.cid;
+      if (!payload.sid) payload.sid = camp.sid;
+
+      if (camp.requiresLongForm) {
+        let pending = parseJSONSafe(sessionStorage.getItem("longFormCampaigns"), []);
+        if (!pending.find(p => p.cid === camp.cid && p.sid === camp.sid)) {
+          pending.push({ cid: camp.cid, sid: camp.sid });
+          sessionStorage.setItem("longFormCampaigns", JSON.stringify(pending));
+        }
+        showNextSection();
+        return;
+      }
+
+      if (coregBeforeShortForm) {
+        const raw = sessionStorage.getItem("preShortformCoregLeads");
+        const buffer = parseJSONSafe(raw, []);
+        const idxBuf = buffer.findIndex(p => p.cid === payload.cid && p.sid === payload.sid);
+        if (idxBuf > -1) buffer[idxBuf] = payload;
+        else buffer.push(payload);
+        sessionStorage.setItem("preShortformCoregLeads", JSON.stringify(buffer));
+        log("🕓 Coreg vóór short form → buffered:", payload.cid, payload.sid);
+        showNextSection();
+      } else {
+        await sendLeadToDatabowl(payload);
+        showNextSection();
+      }
     });
   });
-}
+});
 
 // =============================================================
 // ✅ Detecteer einde coreg flow en dispatch event
