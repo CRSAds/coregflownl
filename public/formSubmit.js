@@ -3,6 +3,13 @@
 // shortform (925) + co-sponsors + longform + CID/SID fix + DEBUG toggle
 // =============================================================
 
+// ============================================
+// 🧠 Global state initializer
+// ============================================
+window.shortFormCompleted = window.shortFormCompleted || false;
+window.coregAnswersReady = window.coregAnswersReady || false;
+window.coregFlowCompleted = window.coregFlowCompleted || false;
+
 if (!window.formSubmitInitialized) {
   window.formSubmitInitialized = true;
   window.submittedCampaigns = window.submittedCampaigns || new Set();
