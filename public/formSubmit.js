@@ -249,101 +249,104 @@ if (!window.formSubmitInitialized) {
     });
   });
 
-  // -----------------------------------------------------------
-  // 🔹 Shortform — volledig async (betrouwbare buffered-send)
-  // -----------------------------------------------------------
-  document.addEventListener("DOMContentLoaded", () => {
-    const form = document.getElementById("lead-form");
-    if (!form) return;
+// -----------------------------------------------------------
+// 🔹 Shortform — volledig async (betrouwbare buffered-send)
+// -----------------------------------------------------------
+document.addEventListener("DOMContentLoaded", () => {
+  const form = document.getElementById("lead-form");
+  if (!form) return;
 
-    const btn = form.querySelector(".flow-next, button[type='submit']");
-    if (!btn) return;
+  const btn = form.querySelector(".flow-next, button[type='submit']");
+  if (!btn) return;
 
-    let submitting = false;
+  let submitting = false;
 
-    const handleShortForm = async (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
+  const handleShortForm = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
 
-      if (!form.checkValidity()) {
-        form.reportValidity();
-        return;
-      }
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
 
-      if (submitting) return;
-      submitting = true;
-      btn.disabled = true;
+    if (submitting) return;
+    submitting = true;
+    btn.disabled = true;
 
-      try {
-        const genderEl = form.querySelector("input[name='gender']:checked");
-        if (genderEl) sessionStorage.setItem("gender", genderEl.value);
-        ["firstname", "lastname", "email", "dob"].forEach(id => {
-          const el = document.getElementById(id);
-          if (!el) return;
-          let v = (el.value || "").trim();
-          if (id === "dob") v = v.replace(/\s/g, "");
-          sessionStorage.setItem(id, v);
-        });
+    try {
+      const genderEl = form.querySelector("input[name='gender']:checked");
+      if (genderEl) sessionStorage.setItem("gender", genderEl.value);
+      ["firstname", "lastname", "email", "dob"].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        let v = (el.value || "").trim();
+        if (id === "dob") v = v.replace(/\s/g, "");
+        sessionStorage.setItem(id, v);
+      });
 
-        if (typeof getIpOnce === "function") getIpOnce();
+      if (typeof getIpOnce === "function") getIpOnce();
 
-        // Kort: stuur shortform 925 direct (fire-and-forget)
-        (async () => {
-          try {
-            const basePayload = await window.buildPayload({ cid: "925", sid: "34", is_shortform: true });
-            window.fetchLead(basePayload)
-              .then(r => log("✅ Shortform 925 async verzonden:", r))
-              .catch(err => error("❌ Fout shortform 925 async:", err));
-
-            const accepted = sessionStorage.getItem("sponsorsAccepted") === "true";
-            if (accepted) {
-              const res = await fetch("https://globalcoregflow-nl.vercel.app/api/cosponsors.js", { cache: "no-store" });
-              const json = await res.json();
-              if (Array.isArray(json.data) && json.data.length) {
-                log(`📡 Verstuur ${json.data.length} co-sponsors async...`);
-                Promise.allSettled(json.data.map(async s => {
-                  if (!s?.cid || !s?.sid) return;
-                  const spPayload = await window.buildPayload({ cid: s.cid, sid: s.sid, is_shortform: true });
-                  return window.fetchLead(spPayload);
-                }))
-                .then(() => log("✅ Co-sponsors klaar (async)"))
-                .catch(err => warn("⚠️ Co-sponsors fout (async):", err));
-              } else {
-                log("ℹ️ Geen actieve co-sponsors gevonden");
-              }
-            } else {
-              warn("⚠️ Sponsors niet geaccepteerd — geen co-sponsors verzonden");
-            }
-          } catch (err) {
-            error("💥 Async shortform fout:", err);
-          }
-        })();
-
-        // 🔁 Verstuur buffered coreg-leads die vóór shortform zaten
-        // Belangrijk: wacht hier totdat de buffered leads verwerkt zijn zodat ze niet verloren gaan bij navigatie.
+      // 🔹 Verstuur shortform-lead (campagne 925) direct (fire-and-forget)
+      (async () => {
         try {
-          const result = await sendBufferedCoregLeads({ keepFailed: true, perItemTimeout: 10000 });
-          log("📊 Resultaat buffered-send:", result);
+          const basePayload = await window.buildPayload({ cid: "925", sid: "34", is_shortform: true });
+          window.fetchLead(basePayload)
+            .then(r => log("✅ Shortform 925 async verzonden:", r))
+            .catch(err => error("❌ Fout shortform 925 async:", err));
+
+          const accepted = sessionStorage.getItem("sponsorsAccepted") === "true";
+          if (accepted) {
+            const res = await fetch("https://globalcoregflow-nl.vercel.app/api/cosponsors.js", { cache: "no-store" });
+            const json = await res.json();
+            if (Array.isArray(json.data) && json.data.length) {
+              log(`📡 Verstuur ${json.data.length} co-sponsors async...`);
+              Promise.allSettled(json.data.map(async s => {
+                if (!s?.cid || !s?.sid) return;
+                const spPayload = await window.buildPayload({ cid: s.cid, sid: s.sid, is_shortform: true });
+                return window.fetchLead(spPayload);
+              }))
+              .then(() => log("✅ Co-sponsors klaar (async)"))
+              .catch(err => warn("⚠️ Co-sponsors fout (async):", err));
+            } else {
+              log("ℹ️ Geen actieve co-sponsors gevonden");
+            }
+          } else {
+            warn("⚠️ Sponsors niet geaccepteerd — geen co-sponsors verzonden");
+          }
         } catch (err) {
-          error("❌ Fout tijdens verzenden buffered coreg-leads:", err);
+          error("💥 Async shortform fout:", err);
         }
+      })();
 
-        document.dispatchEvent(new Event("shortFormSubmitted"));
-        log("➡️ Shortform handler afgerond");
+      // 🔁 Verstuur buffered coreg-leads die vóór shortform zaten
+      // Belangrijk: wacht hier totdat de buffered leads verwerkt zijn zodat ze niet verloren gaan bij navigatie.
+      try {
+        const bufferedCount = (JSON.parse(sessionStorage.getItem("preShortformCoregLeads") || "[]")).length;
+        log(`📦 preShortformCoregLeads vóór verzenden: ${bufferedCount}`);
+
+        const result = await sendBufferedCoregLeads({ keepFailed: true, perItemTimeout: 10000 });
+        log("📊 Resultaat buffered-send:", result);
       } catch (err) {
-        error("❌ Fout bij start shortform async:", err);
-      } finally {
-        submitting = false;
-        btn.disabled = false;
+        error("❌ Fout tijdens verzenden buffered coreg-leads:", err);
       }
-    };
 
-    btn.addEventListener("click", handleShortForm, true);
-    form.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") handleShortForm(e);
-    }, true);
-  });
+      document.dispatchEvent(new Event("shortFormSubmitted"));
+      log("➡️ Shortform handler afgerond");
+    } catch (err) {
+      error("❌ Fout bij start shortform async:", err);
+    } finally {
+      submitting = false;
+      btn.disabled = false;
+    }
+  };
+
+  btn.addEventListener("click", handleShortForm, true);
+  form.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") handleShortForm(e);
+  }, true);
+});
 
   // -----------------------------------------------------------
   // 🔹 Longform — volledig async
