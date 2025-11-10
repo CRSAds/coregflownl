@@ -385,4 +385,5 @@ function updateProgressBar(sectionIdx) {
   });
 }
 
+window.coregAnswersReady = true;
 window.addEventListener("DOMContentLoaded", initCoregFlow);
