@@ -344,12 +344,12 @@ async function initCoregFlow() {
           if (window.shortFormCompleted === true) {
           sendLeadToDatabowl(payload);
           log(`📨 Coreg ${camp.cid} direct verstuurd (shortform al voltooid)`);
-        } else {
-          log(`🕓 Coreg ${camp.cid} bewaard — wacht op shortform.`);  
-        }
-
           sessionStorage.removeItem(`coreg_answers_${camp.cid}`);
-          showNextSection(section);
+        } else {
+          log(`🕓 Coreg ${camp.cid} bewaard — wacht op shortform.`);
+        }
+        
+        showNextSection(section);
         }
       });
     }
@@ -400,12 +400,12 @@ async function initCoregFlow() {
             if (window.shortFormCompleted === true) {
             sendLeadToDatabowl(payload);
             log(`📨 Coreg ${camp.cid} direct verstuurd (shortform al voltooid)`);
-          } else {
-            log(`🕓 Coreg ${camp.cid} bewaard — wacht op shortform.`);  
-          }
-
             sessionStorage.removeItem(`coreg_answers_${camp.cid}`);
-            showNextSection(section);
+          } else {
+            log(`🕓 Coreg ${camp.cid} bewaard — wacht op shortform.`);
+          }
+          
+          showNextSection(section);
           }
         } else {
           log("⏭️ Negatief antwoord → vervolgstappen overslaan");
