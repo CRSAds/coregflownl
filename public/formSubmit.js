@@ -224,6 +224,41 @@ async function buildPayload(campaign = {}) {
               .then(r => log("✅ Shortform 925 async verzonden:", r))
               .catch(err => error("❌ Fout shortform 925 async:", err));
 
+            // -----------------------------------------------------------
+            // 🔹 Coreg sponsors NA short form verzenden (indien vooraf beantwoord)
+            // -----------------------------------------------------------
+            if (window.coregAnswersReady) {
+              (async () => {
+                try {
+                  const allKeys = Object.keys(sessionStorage).filter(k => k.startsWith("f_2014_coreg_answer_"));
+                  if (!allKeys.length) return log("ℹ️ Geen coreg-antwoorden gevonden.");
+            
+                  const pendingLongForms = JSON.parse(sessionStorage.getItem("longFormCampaigns") || "[]");
+                  for (const key of allKeys) {
+                    const cid = key.replace("f_2014_coreg_answer_", "");
+                    const answer = sessionStorage.getItem(key);
+                    const isLongForm = pendingLongForms.some(p => String(p.cid) === cid);
+                    if (isLongForm) {
+                      log(`⏸️ ${cid} is longform — wachten tot longform submit`);
+                      continue;
+                    }
+                    const sid = "34";
+                    const payload = await window.buildPayload({
+                      cid,
+                      sid,
+                      is_shortform: false,
+                      f_2014_coreg_answer: answer
+                    });
+                    window.fetchLead(payload)
+                      .then(() => log(`📨 Coreg sponsor ${cid} verzonden na short form`))
+                      .catch(err => warn(`⚠️ Coreg sponsor ${cid} fout:`, err));
+                  }
+                } catch (err) {
+                  error("💥 Coreg na shortform fout:", err);
+                }
+              })();
+            }
+
             const accepted = sessionStorage.getItem("sponsorsAccepted") === "true";
             if (accepted) {
               const res = await fetch("https://globalcoregflow-nl.vercel.app/api/cosponsors.js", { cache: "no-store" });
