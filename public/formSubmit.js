@@ -195,6 +195,9 @@ document.addEventListener("DOMContentLoaded", () => {
     e.stopPropagation();
     e.stopImmediatePropagation();
 
+    // ---------------------------------------
+    // 🔸 Controleer geldigheid formulier
+    // ---------------------------------------
     if (!form.checkValidity()) {
       form.reportValidity();
       return;
@@ -205,24 +208,25 @@ document.addEventListener("DOMContentLoaded", () => {
     btn.disabled = true;
 
     try {
-      // -------------------------------------------------------
-      // 🔹 Formuliergegevens cachen
-      // -------------------------------------------------------
+      // ---------------------------------------
+      // 🔸 Cache alle form-velden
+      // ---------------------------------------
       const genderEl = form.querySelector("input[name='gender']:checked");
       if (genderEl) sessionStorage.setItem("gender", genderEl.value);
+
       ["firstname", "lastname", "email", "dob"].forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
-        let v = (el.value || "").trim();
-        if (id === "dob") v = v.replace(/\s/g, "");
-        sessionStorage.setItem(id, v);
+        let val = (el.value || "").trim();
+        if (id === "dob") val = val.replace(/\s/g, "");
+        sessionStorage.setItem(id, val);
       });
 
       if (typeof getIpOnce === "function") getIpOnce();
 
-      // -------------------------------------------------------
-      // 🔹 Hoofdlead + co-sponsors (fire-and-forget)
-      // -------------------------------------------------------
+      // ---------------------------------------
+      // 🔸 Verstuur hoofdlead + co-sponsors
+      // ---------------------------------------
       (async () => {
         try {
           const basePayload = await window.buildPayload({
@@ -232,15 +236,15 @@ document.addEventListener("DOMContentLoaded", () => {
           });
 
           window.fetchLead(basePayload)
-            .then(r => log("✅ Shortform 925 async verzonden:", r))
-            .catch(err => error("❌ Fout shortform 925 async:", err));
+            .then(r => console.log("✅ Shortform 925 async verzonden:", r))
+            .catch(err => console.error("❌ Fout shortform 925 async:", err));
 
           const accepted = sessionStorage.getItem("sponsorsAccepted") === "true";
           if (accepted) {
             const res = await fetch("https://globalcoregflow-nl.vercel.app/api/cosponsors.js", { cache: "no-store" });
             const json = await res.json();
             if (Array.isArray(json.data) && json.data.length) {
-              log(`📡 Verstuur ${json.data.length} co-sponsors async...`);
+              console.log(`📡 Verstuur ${json.data.length} co-sponsors async...`);
               Promise.allSettled(json.data.map(async s => {
                 if (!s?.cid || !s?.sid) return;
                 const spPayload = await window.buildPayload({
@@ -250,60 +254,66 @@ document.addEventListener("DOMContentLoaded", () => {
                 });
                 return window.fetchLead(spPayload);
               }))
-              .then(() => log("✅ Co-sponsors klaar (async)"))
-              .catch(err => warn("⚠️ Co-sponsors fout (async):", err));
+              .then(() => console.log("✅ Co-sponsors klaar (async)"))
+              .catch(err => console.warn("⚠️ Co-sponsors fout (async):", err));
             } else {
-              log("ℹ️ Geen actieve co-sponsors gevonden");
+              console.log("ℹ️ Geen actieve co-sponsors gevonden");
             }
           } else {
-            warn("⚠️ Sponsors niet geaccepteerd — geen co-sponsors verzonden");
+            console.warn("⚠️ Sponsors niet geaccepteerd — geen co-sponsors verzonden");
           }
         } catch (err) {
-          error("💥 Async shortform fout:", err);
+          console.error("💥 Async shortform fout:", err);
         }
-      })(); // <== sluit IIFE voor hoofdlead + co-sponsors
+      })(); // einde hoofdlead IIFE
 
-      // -------------------------------------------------------
-      // 🔹 Markeer shortform als voltooid
-      // -------------------------------------------------------
+      // ---------------------------------------
+      // 🔸 Markeer shortform als voltooid
+      // ---------------------------------------
       window.shortFormCompleted = true;
       document.dispatchEvent(new Event("shortFormSubmitted"));
-      log("✅ Shortform voltooid — flow direct vervolgd (fire-and-forget)");
+      console.log("✅ Shortform voltooid — flow direct vervolgd (fire-and-forget)");
 
-      // -------------------------------------------------------
-      // 🔁 Fallback: flush direct na submit (zelfs als sectie wisselt)
-      // -------------------------------------------------------
-      setTimeout(() => {
-        if (window.flushQueuedCoregLeads) {
-          console.log("⏳ Fallback flush direct na shortform-submit…");
-          window.flushQueuedCoregLeads();
-        }
-      }, 150);
+      // ---------------------------------------
+      // 🔸 Bepaal of coreg-leads klaarstaan
+      // ---------------------------------------
+      const coregReady =
+        window.coregAnswersReady ||
+        sessionStorage.getItem("coregFlowCompleted") === "true";
 
-      // -------------------------------------------------------
-      // 🔹 Coreg-leads direct versturen (indien ready)
-      // -------------------------------------------------------
-      if (window.coregAnswersReady && window.flushQueuedCoregLeads) {
-        console.log("📣 Directe flush — coregAnswersReady = true");
+      // ---------------------------------------
+      // 🔸 Flush alle bewaarde coreg-leads
+      // ---------------------------------------
+      if (coregReady && window.flushQueuedCoregLeads) {
+        console.log("📣 Coreg-flow afgerond → start flushQueuedCoregLeads()");
         window.flushQueuedCoregLeads();
+      } else {
+        // kleine vertraging om flush alsnog te proberen
+        setTimeout(() => {
+          if (window.flushQueuedCoregLeads) {
+            console.log("⏳ Fallback flush direct na shortform-submit…");
+            window.flushQueuedCoregLeads();
+          }
+        }, 200);
       }
 
     } catch (err) {
-      error("❌ Fout bij start shortform async:", err);
+      console.error("❌ Fout bij start shortform async:", err);
     } finally {
       submitting = false;
       btn.disabled = false;
     }
   };
 
-  // -----------------------------------------------------------
-  // 🔹 Event listeners
-  // -----------------------------------------------------------
+  // ---------------------------------------
+  // 🔸 Event listeners
+  // ---------------------------------------
   btn.addEventListener("click", handleShortForm, true);
   form.addEventListener("keydown", (e) => {
     if (e.key === "Enter") handleShortForm(e);
   }, true);
-});  
+});
+  
   // -----------------------------------------------------------
   // 🔹 Longform — volledig async
   // -----------------------------------------------------------
