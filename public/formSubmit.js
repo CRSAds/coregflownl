@@ -64,6 +64,36 @@ if (!window.formSubmitInitialized) {
       console.error("💥 Fout bij coreg-verzending na shortform:", err);
     }
   });
+
+// ============================================================
+// 🔹 flushQueuedCoregLeads() — verzend bewaarde coreg antwoorden
+// ============================================================
+window.flushQueuedCoregLeads = async function flushQueuedCoregLeads() {
+  console.log("🚀 flushQueuedCoregLeads() gestart...");
+  const keys = Object.keys(sessionStorage).filter(k => k.startsWith("f_2014_coreg_answer_"));
+  if (!keys.length) {
+    console.log("ℹ️ Geen coreg antwoorden om te flushen.");
+    return;
+  }
+
+  const pendingLongForms = JSON.parse(sessionStorage.getItem("longFormCampaigns") || "[]");
+  for (const key of keys) {
+    const cid = key.replace("f_2014_coreg_answer_", "");
+    const isLongForm = pendingLongForms.some(p => String(p.cid) === cid);
+    if (isLongForm) continue;
+
+    const answer = sessionStorage.getItem(key);
+    const payload = await window.buildPayload({
+      cid,
+      sid: "34",
+      is_shortform: false,
+      f_2014_coreg_answer: answer,
+    });
+    console.log(`📬 Flush coreg-lead ${cid}...`);
+    await window.fetchLead(payload);
+  }
+  console.log("🏁 flushQueuedCoregLeads() voltooid.");
+};
   
   // -----------------------------------------------------------
   // 🔹 Tracking opslaan bij pageload
