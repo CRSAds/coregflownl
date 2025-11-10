@@ -282,7 +282,8 @@ async function buildPayload(campaign = {}) {
             error("💥 Async shortform fout:", err);
           }
         })();
-
+        
+        window.shortFormCompleted = true;
         document.dispatchEvent(new Event("shortFormSubmitted"));
         log("➡️ Flow direct vervolgd (fire-and-forget)");
       } catch (err) {
