@@ -313,7 +313,16 @@ function updateProgressBar(sectionIdx) {
           showNextSection(section);
         } else {
           const payload = await buildCoregPayload(camp, answerValue);
-          sendLeadToDatabowl(payload);
+
+          // 🔹 Controleer of shortform al voltooid is
+          if (window.shortFormCompleted) {
+            sendLeadToDatabowl(payload);
+            log(`📨 Coreg ${camp.cid} direct verstuurd (shortform al voltooid)`);
+          } else {
+            log(`🕓 Coreg ${camp.cid} bewaard — shortform nog niet voltooid`);
+            // Lead wordt later verzonden zodra shortform klaar is
+          }
+          
           sessionStorage.removeItem(`coreg_answers_${camp.cid}`);
           showNextSection(section);
         }
@@ -362,7 +371,16 @@ function updateProgressBar(sectionIdx) {
             showNextSection(section);
           } else {
             const payload = await buildCoregPayload(camp, answerValue);
-            sendLeadToDatabowl(payload);
+
+            // 🔹 Controleer of shortform al voltooid is
+            if (window.shortFormCompleted) {
+              sendLeadToDatabowl(payload);
+              log(`📨 Coreg ${camp.cid} direct verstuurd (shortform al voltooid)`);
+            } else {
+              log(`🕓 Coreg ${camp.cid} bewaard — shortform nog niet voltooid`);
+              // Lead wordt later verzonden zodra shortform klaar is
+            }
+            
             sessionStorage.removeItem(`coreg_answers_${camp.cid}`);
             showNextSection(section);
           }
