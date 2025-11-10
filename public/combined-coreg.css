@@ -110,7 +110,7 @@
   display: block;
   width: 100%;
   margin: 4px 0 !important;  /* compacte witruimte tussen knoppen */
-  padding: 14px 18px;
+  padding: 5px 0px;
   border: none;
   border-radius: 10px;
   font-size: 1rem;
@@ -324,6 +324,32 @@ button#submit-long-form {
 }
 button:hover {
   background-color: var(--ld-primary-hover);
+}
+
+input.error {
+  border: 1.5px solid red !important;
+  box-shadow: 0 0 0 2px rgba(255, 0, 0, 0.15);
+}
+
+.error-text {
+  color: red;
+  font-size: 10px;
+  margin-top: 4px;
+  margin-bottom: 6px;
+  font-weight: 500;
+  font-family: "Plus Jakarta Sans", sans-serif;
+}
+
+.coreg-header {
+  text-align: center;
+  margin-bottom: 10px;
+}
+.coreg-motivation {
+  font-size: 1.0rem;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+  line-height: 1.4;
 }
 
 /* === Responsiveness === */
