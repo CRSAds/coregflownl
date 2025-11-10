@@ -1,6 +1,14 @@
-// /public/cosponsors.js
+// =============================================================
+// ✅ cosponsors.js — popup voor partnerlijst (met DEBUG toggle)
+// =============================================================
 (function () {
-  console.log("🎯 coSponsors.js gestart");
+  // 🔧 Logging toggle
+  const DEBUG = false; // ← Zet op false in productie
+  const log = (...args) => { if (DEBUG) console.log(...args); };
+  const warn = (...args) => { if (DEBUG) console.warn(...args); };
+  const error = (...args) => { if (DEBUG) console.error(...args); };
+
+  log("🎯 coSponsors.js gestart");
 
   // Dynamisch element voor popup injecteren
   const popupHTML = `
@@ -24,14 +32,23 @@
     const sponsorList = document.getElementById("sponsor-list");
 
     // Popup gedrag
-    document.getElementById("open-sponsor-popup").addEventListener("click", () => {
-      popup.style.display = "flex";
-    });
+    const openBtn = document.getElementById("open-sponsor-popup");
+    if (openBtn) {
+      openBtn.addEventListener("click", () => {
+        popup.style.display = "flex";
+        log("📢 Sponsor-popup geopend");
+      });
+    } else {
+      warn("⚠️ Geen #open-sponsor-popup knop gevonden");
+    }
+
     document.getElementById("close-popup").addEventListener("click", () => {
       popup.style.display = "none";
+      log("🔒 Sponsor-popup gesloten (close button)");
     });
     document.querySelector(".sponsor-popup-overlay")?.addEventListener("click", () => {
       popup.style.display = "none";
+      log("🔒 Sponsor-popup gesloten (overlay click)");
     });
 
     // CSS dynamisch injecteren
@@ -58,24 +75,26 @@
       }
       .sponsor-list { display: flex; flex-direction: column; gap: 20px; margin-top: 15px; }
       .sponsor-item { border-bottom: 1px solid #ddd; padding-bottom: 15px; display: flex; align-items: flex-start; gap: 15px; }
-      .sponsor-item img { width: 80px; height: auto; flex-shrink: 0; }
+      .sponsor-item img { width: 80px; height: auto; flex-shrink: 0; border-radius: 4px; }
       .sponsor-item h4 { margin: 0 0 5px 0; }
- 
       #close-popup {
         position: absolute; top: 10px; right: 15px;
         font-size: 24px; background: none; border: none; cursor: pointer;
       }
     `;
     document.head.appendChild(style);
+    log("🎨 Dynamische CSS toegevoegd voor sponsor-popup");
 
     // Data ophalen van Directus via Vercel API
     try {
-      const res = await fetch("https://globalcoregflow-nl.vercel.app/api/cosponsors.js");
+      const res = await fetch("https://globalcoregflow-nl.vercel.app/api/cosponsors.js", { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
 
       sponsorList.innerHTML = "";
 
       if (json.data && json.data.length > 0) {
+        log(`📦 ${json.data.length} sponsors geladen`);
         json.data.forEach(s => {
           const div = document.createElement("div");
           div.className = "sponsor-item";
@@ -83,18 +102,19 @@
             <img src="https://cms.core.909play.com/assets/${s.logo}" alt="${s.title}" />
             <div>
               <h4>${s.title}</h4>
-              <p>${s.description}</p>
+              <p>${s.description || ""}</p>
               <small>${(s.address || "").replace(/\n/g, "<br>")}</small><br>
-              <a href="${s.privacy_url}" target="_blank">Privacybeleid</a>
+              ${s.privacy_url ? `<a href="${s.privacy_url}" target="_blank">Privacybeleid</a>` : ""}
             </div>
           `;
           sponsorList.appendChild(div);
         });
       } else {
+        warn("ℹ️ Geen actieve sponsors gevonden");
         sponsorList.innerHTML = "<p>Geen actieve sponsors gevonden.</p>";
       }
     } catch (err) {
-      console.error("❌ Fout bij ophalen sponsors:", err);
+      error("❌ Fout bij ophalen sponsors:", err);
       sponsorList.innerHTML = "<p>Er ging iets mis bij het laden van de sponsorlijst.</p>";
     }
   });
