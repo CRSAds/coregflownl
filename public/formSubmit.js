@@ -8,7 +8,7 @@ if (!window.formSubmitInitialized) {
   window.submittedCampaigns = window.submittedCampaigns || new Set();
 
   // 🔧 Toggle logging hier
-  const DEBUG = false; // ← zet op false in productie en true bij testen
+  const DEBUG = true; // ← zet op false in productie en true bij testen
   const log = (...args) => { if (DEBUG) console.log(...args); };
   const warn = (...args) => { if (DEBUG) console.warn(...args); };
   const error = (...args) => { if (DEBUG) console.error(...args); };
