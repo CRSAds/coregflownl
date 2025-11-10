@@ -434,4 +434,15 @@ document.addEventListener("DOMContentLoaded", () => {
       log("✅ Sponsors akkoord");
     });
   });
+
+  // ============================================
+  // 🔁 Fallback-trigger — als shortform al klaar was vóór init
+  // ============================================
+  setTimeout(() => {
+    if (window.shortFormCompleted && !window.shortFormFlushed) {
+      console.log("🔁 Fallback: shortFormCompleted was al true → coreg-leads flushen alsnog.");
+      document.dispatchEvent(new Event("shortFormSubmitted"));
+      window.shortFormFlushed = true;
+    }
+  }, 1000);
 } // ⬅️ deze sloot al de hele formSubmit-module af
