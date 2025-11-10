@@ -179,7 +179,7 @@ async function buildPayload(campaign = {}) {
   });
 
 // -----------------------------------------------------------
-// 🔹 Shortform — volledig async
+// 🔹 Shortform — volledig async + coreg flush na submit
 // -----------------------------------------------------------
 document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("lead-form");
@@ -271,47 +271,21 @@ document.addEventListener("DOMContentLoaded", () => {
       log("✅ Shortform voltooid — flow direct vervolgd (fire-and-forget)");
 
       // -------------------------------------------------------
-      // 🔹 Verstuur bewaarde coreg-leads nu shortform voltooid is
+      // 🔁 Fallback: flush direct na submit (zelfs als sectie wisselt)
       // -------------------------------------------------------
-      if (window.coregAnswersReady) {
-        (async () => {
-          try {
-            const allKeys = Object.keys(sessionStorage)
-              .filter(k => k.startsWith("f_2014_coreg_answer_"));
-            if (!allKeys.length)
-              return log("ℹ️ Geen bewaarde coreg-antwoorden gevonden na shortform.");
+      setTimeout(() => {
+        if (window.flushQueuedCoregLeads) {
+          console.log("⏳ Fallback flush direct na shortform-submit…");
+          window.flushQueuedCoregLeads();
+        }
+      }, 150);
 
-            const pendingLongForms = JSON.parse(
-              sessionStorage.getItem("longFormCampaigns") || "[]"
-            );
-
-            for (const key of allKeys) {
-              const cid = key.replace("f_2014_coreg_answer_", "");
-              const answer = sessionStorage.getItem(key);
-              const isLongForm = pendingLongForms.some(p => String(p.cid) === cid);
-              if (isLongForm) {
-                log(`⏸️ ${cid} is longform — wachten tot longform submit`);
-                continue;
-              }
-
-              const sid = "34";
-              const payload = await window.buildPayload({
-                cid,
-                sid,
-                is_shortform: false,
-                f_2014_coreg_answer: answer
-              });
-
-              window.fetchLead(payload)
-                .then(() => log(`📨 Coreg sponsor ${cid} verstuurd NA shortform`))
-                .catch(err =>
-                  warn(`⚠️ Coreg sponsor ${cid} fout bij verzending NA shortform:`, err)
-                );
-            }
-          } catch (err) {
-            error("💥 Coreg-verzending na shortform fout:", err);
-          }
-        })();
+      // -------------------------------------------------------
+      // 🔹 Coreg-leads direct versturen (indien ready)
+      // -------------------------------------------------------
+      if (window.coregAnswersReady && window.flushQueuedCoregLeads) {
+        console.log("📣 Directe flush — coregAnswersReady = true");
+        window.flushQueuedCoregLeads();
       }
 
     } catch (err) {
@@ -322,16 +296,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  // -----------------------------------------------------------
+  // 🔹 Event listeners
+  // -----------------------------------------------------------
   btn.addEventListener("click", handleShortForm, true);
-  form.addEventListener(
-    "keydown",
-    e => {
-      if (e.key === "Enter") handleShortForm(e);
-    },
-    true
-  );
-});
-  
+  form.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") handleShortForm(e);
+  }, true);
+});  
   // -----------------------------------------------------------
   // 🔹 Longform — volledig async
   // -----------------------------------------------------------
