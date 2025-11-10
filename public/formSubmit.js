@@ -41,68 +41,68 @@ if (!window.formSubmitInitialized) {
     return ip;
   }
 
-// -----------------------------------------------------------
-// 🔹 Payload opbouwen
-// -----------------------------------------------------------
-async function buildPayload(campaign = {}) {
-  const ip = await getIpOnce();
+ // -----------------------------------------------------------
+ // 🔹 Payload opbouwen
+ // -----------------------------------------------------------
+ async function buildPayload(campaign = {}) {
+   const ip = await getIpOnce();
 
-  const t_id = sessionStorage.getItem("t_id") || crypto.randomUUID();
-  const aff_id = sessionStorage.getItem("aff_id") || "unknown";
-  const offer_id = sessionStorage.getItem("offer_id") || "unknown";
-  const sub_id = sessionStorage.getItem("sub_id") || "unknown";
-  const sub2 = sessionStorage.getItem("sub2") || "unknown";
-  const campaignUrl = `${window.location.origin}${window.location.pathname}?status=online`;
+   const t_id = sessionStorage.getItem("t_id") || crypto.randomUUID();
+   const aff_id = sessionStorage.getItem("aff_id") || "unknown";
+   const offer_id = sessionStorage.getItem("offer_id") || "unknown";
+   const sub_id = sessionStorage.getItem("sub_id") || "unknown";
+   const sub2 = sessionStorage.getItem("sub2") || "unknown";
+   const campaignUrl = `${window.location.origin}${window.location.pathname}?status=online`;
 
-  // ✅ DOB parsing
-  const dobValue = sessionStorage.getItem("dob");
-  let dob = "";
-  if (dobValue && dobValue.includes("/")) {
-    const [dd, mm, yyyy] = dobValue.split("/");
-    if (dd && mm && yyyy) dob = `${yyyy}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")}`;
-  }
+   // ✅ DOB parsing
+   const dobValue = sessionStorage.getItem("dob");
+   let dob = "";
+   if (dobValue && dobValue.includes("/")) {
+     const [dd, mm, yyyy] = dobValue.split("/");
+     if (dd && mm && yyyy) dob = `${yyyy}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")}`;
+   }
 
-  // ✅ CID/SID fix
-  let cid = campaign.cid;
-  let sid = campaign.sid;
-  if (cid === "undefined" || cid === undefined || cid === "") cid = null;
-  if (sid === "undefined" || sid === undefined || sid === "") sid = null;
+   // ✅ CID/SID fix
+   let cid = campaign.cid;
+   let sid = campaign.sid;
+   if (cid === "undefined" || cid === undefined || cid === "") cid = null;
+   if (sid === "undefined" || sid === undefined || sid === "") sid = null;
 
-  // ✅ Optindate (UTC ISO +0000)
-  const optindate = new Date().toISOString().split(".")[0] + "+0000";
+   // ✅ Optindate (UTC ISO +0000)
+   const optindate = new Date().toISOString().split(".")[0] + "+0000";
 
-  const payload = {
-    cid,
-    sid,
-    gender: sessionStorage.getItem("gender") || "",
-    firstname: sessionStorage.getItem("firstname") || "",
-    lastname: sessionStorage.getItem("lastname") || "",
-    email: sessionStorage.getItem("email") || "",
-    postcode: sessionStorage.getItem("postcode") || "",
-    straat: sessionStorage.getItem("straat") || "",
-    huisnummer: sessionStorage.getItem("huisnummer") || "",
-    woonplaats: sessionStorage.getItem("woonplaats") || "",
-    telefoon: sessionStorage.getItem("telefoon") || "",
-    dob,
-    t_id,
-    aff_id,
-    offer_id,
-    sub_id,
-    sub2,
-    f_1453_campagne_url: campaignUrl,
-    f_17_ipaddress: ip,
-    f_55_optindate: optindate, // ✅ nieuw toegevoegd
-    is_shortform: campaign.is_shortform || false,
-  };
+   const payload = {
+     cid,
+     sid,
+     gender: sessionStorage.getItem("gender") || "",
+     firstname: sessionStorage.getItem("firstname") || "",
+     lastname: sessionStorage.getItem("lastname") || "",
+     email: sessionStorage.getItem("email") || "",
+     postcode: sessionStorage.getItem("postcode") || "",
+     straat: sessionStorage.getItem("straat") || "",
+     huisnummer: sessionStorage.getItem("huisnummer") || "",
+     woonplaats: sessionStorage.getItem("woonplaats") || "",
+     telefoon: sessionStorage.getItem("telefoon") || "",
+     dob,
+     t_id,
+     aff_id,
+     offer_id,
+     sub_id,
+     sub2,
+     f_1453_campagne_url: campaignUrl,
+     f_17_ipaddress: ip,
+     f_55_optindate: optindate, // ✅ nieuw toegevoegd
+     is_shortform: campaign.is_shortform || false,
+   };
 
-  if (campaign.f_2014_coreg_answer)
-    payload.f_2014_coreg_answer = campaign.f_2014_coreg_answer;
-  if (campaign.f_2575_coreg_answer_dropdown)
-    payload.f_2575_coreg_answer_dropdown = campaign.f_2575_coreg_answer_dropdown;
+   if (campaign.f_2014_coreg_answer)
+     payload.f_2014_coreg_answer = campaign.f_2014_coreg_answer;
+   if (campaign.f_2575_coreg_answer_dropdown)
+     payload.f_2575_coreg_answer_dropdown = campaign.f_2575_coreg_answer_dropdown;
 
-  return payload;
-}
-  window.buildPayload = buildPayload;
+   return payload;
+ }
+   window.buildPayload = buildPayload;
 
   // -----------------------------------------------------------
   // 🔹 Lead versturen
@@ -134,6 +134,77 @@ async function buildPayload(campaign = {}) {
     }
   }
   window.fetchLead = fetchLead;
+
+  // -----------------------------------------------------------
+  // 🔹 Helper: send buffered coreg leads reliably (robust logging + retries)
+  // -----------------------------------------------------------
+  async function sendBufferedCoregLeads({ keepFailed = true, perItemTimeout = 10000 } = {}) {
+    try {
+      const raw = sessionStorage.getItem("preShortformCoregLeads");
+      const buffered = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(buffered) || buffered.length === 0) {
+        log("ℹ️ Geen buffered coreg-leads gevonden om te versturen.");
+        return { sent: 0, failed: 0 };
+      }
+
+      if (typeof window.fetchLead !== "function") {
+        warn("⚠️ window.fetchLead niet beschikbaar; buffered leads worden niet verzonden.");
+        return { sent: 0, failed: buffered.length, reason: "no_fetchLead" };
+      }
+
+      log(`🚀 Verstuur ${buffered.length} buffered coreg-leads (voor shortform)...`);
+      const failed = [];
+
+      for (const p of buffered) {
+        try {
+          // Basic validation
+          if (!p || !p.cid || !p.sid) {
+            warn("⚠️ Ongeldige buffered payload (sla over):", p);
+            failed.push(p);
+            continue;
+          }
+
+          // Optionally implement a per-item timeout wrapper
+          const sendPromise = window.fetchLead(p);
+          let res;
+          if (perItemTimeout > 0) {
+            res = await Promise.race([
+              sendPromise,
+              new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), perItemTimeout))
+            ]);
+          } else {
+            res = await sendPromise;
+          }
+
+          // Inspect result and decide if failed
+          if (res && res.success === false) {
+            warn("⚠️ Buffered lead returned error:", p.cid, res);
+            failed.push(p);
+          } else {
+            log("✅ Buffered lead verzonden:", p.cid, p.sid, res && res.success ? "success" : res);
+          }
+        } catch (err) {
+          error("❌ Fout bij verzenden buffered lead:", p && p.cid, err);
+          failed.push(p);
+        }
+      }
+
+      // If there are failures, optionally persist them back so they can be retried later.
+      if (failed.length > 0 && keepFailed) {
+        sessionStorage.setItem("preShortformCoregLeads", JSON.stringify(failed));
+        warn(`⚠️ ${failed.length} buffered leads konden niet worden verzonden — bewaard voor retry.`);
+      } else {
+        sessionStorage.removeItem("preShortformCoregLeads");
+        log("🗑️ preShortformCoregLeads verwijderd (alles verzonden).");
+      }
+
+      return { sent: buffered.length - failed.length, failed: failed.length };
+    } catch (err) {
+      error("❌ Fout in sendBufferedCoregLeads:", err);
+      return { sent: 0, failed: 0, error: err.message };
+    }
+  }
+  window.sendBufferedCoregLeads = sendBufferedCoregLeads;
 
   // -----------------------------------------------------------
   // 🔹 Slim DOB veld — autojump
@@ -179,7 +250,7 @@ async function buildPayload(campaign = {}) {
   });
 
   // -----------------------------------------------------------
-  // 🔹 Shortform — volledig async
+  // 🔹 Shortform — volledig async (betrouwbare buffered-send)
   // -----------------------------------------------------------
   document.addEventListener("DOMContentLoaded", () => {
     const form = document.getElementById("lead-form");
@@ -217,6 +288,7 @@ async function buildPayload(campaign = {}) {
 
         if (typeof getIpOnce === "function") getIpOnce();
 
+        // Kort: stuur shortform 925 direct (fire-and-forget)
         (async () => {
           try {
             const basePayload = await window.buildPayload({ cid: "925", sid: "34", is_shortform: true });
@@ -248,19 +320,17 @@ async function buildPayload(campaign = {}) {
           }
         })();
 
-        document.dispatchEvent(new Event("shortFormSubmitted"));
         // 🔁 Verstuur buffered coreg-leads die vóór shortform zaten
-        (async () => {
-          const buffered = JSON.parse(sessionStorage.getItem("preShortformCoregLeads") || "[]");
-          if (Array.isArray(buffered) && buffered.length) {
-            console.log(`🚀 Verstuur ${buffered.length} buffered coreg-leads (voor shortform)...`);
-            for (const p of buffered) {
-              await window.fetchLead(p);
-            }
-            sessionStorage.removeItem("preShortformCoregLeads");
-          }
-        })();
-        log("➡️ Flow direct vervolgd (fire-and-forget)");
+        // Belangrijk: wacht hier totdat de buffered leads verwerkt zijn zodat ze niet verloren gaan bij navigatie.
+        try {
+          const result = await sendBufferedCoregLeads({ keepFailed: true, perItemTimeout: 10000 });
+          log("📊 Resultaat buffered-send:", result);
+        } catch (err) {
+          error("❌ Fout tijdens verzenden buffered coreg-leads:", err);
+        }
+
+        document.dispatchEvent(new Event("shortFormSubmitted"));
+        log("➡️ Shortform handler afgerond");
       } catch (err) {
         error("❌ Fout bij start shortform async:", err);
       } finally {
