@@ -1,5 +1,5 @@
 // =============================================================
-// ✅ coregRenderer.js — verbeterde versie (buffer fix vóór shortform)
+// ✅ coregRenderer.js — stabiele versie met buffer fix + index navigatie
 // =============================================================
 
 if (typeof window.API_COREG === "undefined") {
@@ -247,17 +247,18 @@ async function initCoregFlow() {
           /(^|\s)(nee|geen interesse|sla over)(\s|$)/i.test(labelText) || answerVal === "no";
         const isPositive = !isNegative;
 
+        const idx = sections.indexOf(section);
+        section.style.display = "none";
+
         if (!isPositive) {
-          section.style.display = "none";
-          const next = section.nextElementSibling;
-          if (next) next.style.display = "block";
+          if (idx < sections.length - 1) sections[idx + 1].style.display = "block";
+          else handleFinalCoreg();
           return;
         }
 
         const coregBeforeShortForm = isCoregBeforeShortForm();
         const payload = await buildCoregPayload(camp, answerValue);
 
-        // Fallback: forceer cid/sid
         if (!payload.cid) payload.cid = camp.cid;
         if (!payload.sid) payload.sid = camp.sid;
 
@@ -267,14 +268,7 @@ async function initCoregFlow() {
             pending.push({ cid: camp.cid, sid: camp.sid });
             sessionStorage.setItem("longFormCampaigns", JSON.stringify(pending));
           }
-          section.style.display = "none";
-          const next = section.nextElementSibling;
-          if (next) next.style.display = "block";
-          return;
-        }
-
-        // === BUFFER LOGICA FIX ===
-        if (coregBeforeShortForm) {
+        } else if (coregBeforeShortForm) {
           const raw = sessionStorage.getItem("preShortformCoregLeads");
           const buffer = parseJSONSafe(raw, []);
           const idxBuf = buffer.findIndex(p => p.cid === payload.cid && p.sid === payload.sid);
@@ -282,17 +276,27 @@ async function initCoregFlow() {
           else buffer.push(payload);
           sessionStorage.setItem("preShortformCoregLeads", JSON.stringify(buffer));
           log("🕓 Coreg vóór short form → buffered:", payload.cid, payload.sid);
-          log("📦 Buffer nu:", buffer.map(p => `${p.cid}/${p.sid}`));
         } else {
           sendLeadToDatabowl(payload);
         }
 
-        section.style.display = "none";
-        const next = section.nextElementSibling;
-        if (next) next.style.display = "block";
+        if (idx < sections.length - 1) {
+          sections[idx + 1].style.display = "block";
+          log(`➡️ Volgende coreg-sectie getoond (${idx + 1}/${sections.length})`);
+        } else {
+          handleFinalCoreg();
+        }
       });
     });
   });
+}
+
+// =============================================================
+// ✅ Detecteer einde coreg flow en dispatch event
+// =============================================================
+function handleFinalCoreg() {
+  log("🏁 Coreg flow volledig afgerond — dispatch coregFlowCompleted event");
+  document.dispatchEvent(new Event("coregFlowCompleted"));
 }
 
 window.addEventListener("DOMContentLoaded", initCoregFlow);
