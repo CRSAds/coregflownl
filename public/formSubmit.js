@@ -205,6 +205,9 @@ document.addEventListener("DOMContentLoaded", () => {
     btn.disabled = true;
 
     try {
+      // -------------------------------------------------------
+      // 🔹 Formuliergegevens cachen
+      // -------------------------------------------------------
       const genderEl = form.querySelector("input[name='gender']:checked");
       if (genderEl) sessionStorage.setItem("gender", genderEl.value);
       ["firstname", "lastname", "email", "dob"].forEach(id => {
@@ -217,10 +220,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (typeof getIpOnce === "function") getIpOnce();
 
-      // 🔹 Verstuur hoofdlead + co-sponsors (fire and forget)
+      // -------------------------------------------------------
+      // 🔹 Hoofdlead + co-sponsors (fire-and-forget)
+      // -------------------------------------------------------
       (async () => {
         try {
-          const basePayload = await window.buildPayload({ cid: "925", sid: "34", is_shortform: true });
+          const basePayload = await window.buildPayload({
+            cid: "925",
+            sid: "34",
+            is_shortform: true
+          });
+
           window.fetchLead(basePayload)
             .then(r => log("✅ Shortform 925 async verzonden:", r))
             .catch(err => error("❌ Fout shortform 925 async:", err));
@@ -233,7 +243,11 @@ document.addEventListener("DOMContentLoaded", () => {
               log(`📡 Verstuur ${json.data.length} co-sponsors async...`);
               Promise.allSettled(json.data.map(async s => {
                 if (!s?.cid || !s?.sid) return;
-                const spPayload = await window.buildPayload({ cid: s.cid, sid: s.sid, is_shortform: true });
+                const spPayload = await window.buildPayload({
+                  cid: s.cid,
+                  sid: s.sid,
+                  is_shortform: true
+                });
                 return window.fetchLead(spPayload);
               }))
               .then(() => log("✅ Co-sponsors klaar (async)"))
@@ -247,23 +261,30 @@ document.addEventListener("DOMContentLoaded", () => {
         } catch (err) {
           error("💥 Async shortform fout:", err);
         }
-      })();
+      })(); // <== sluit IIFE voor hoofdlead + co-sponsors
 
+      // -------------------------------------------------------
       // 🔹 Markeer shortform als voltooid
+      // -------------------------------------------------------
       window.shortFormCompleted = true;
       document.dispatchEvent(new Event("shortFormSubmitted"));
       log("✅ Shortform voltooid — flow direct vervolgd (fire-and-forget)");
 
-      // -----------------------------------------------------------
+      // -------------------------------------------------------
       // 🔹 Verstuur bewaarde coreg-leads nu shortform voltooid is
-      // -----------------------------------------------------------
+      // -------------------------------------------------------
       if (window.coregAnswersReady) {
         (async () => {
           try {
-            const allKeys = Object.keys(sessionStorage).filter(k => k.startsWith("f_2014_coreg_answer_"));
-            if (!allKeys.length) return log("ℹ️ Geen bewaarde coreg-antwoorden gevonden na shortform.");
+            const allKeys = Object.keys(sessionStorage)
+              .filter(k => k.startsWith("f_2014_coreg_answer_"));
+            if (!allKeys.length)
+              return log("ℹ️ Geen bewaarde coreg-antwoorden gevonden na shortform.");
 
-            const pendingLongForms = JSON.parse(sessionStorage.getItem("longFormCampaigns") || "[]");
+            const pendingLongForms = JSON.parse(
+              sessionStorage.getItem("longFormCampaigns") || "[]"
+            );
+
             for (const key of allKeys) {
               const cid = key.replace("f_2014_coreg_answer_", "");
               const answer = sessionStorage.getItem(key);
@@ -272,6 +293,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 log(`⏸️ ${cid} is longform — wachten tot longform submit`);
                 continue;
               }
+
               const sid = "34";
               const payload = await window.buildPayload({
                 cid,
@@ -279,9 +301,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 is_shortform: false,
                 f_2014_coreg_answer: answer
               });
+
               window.fetchLead(payload)
                 .then(() => log(`📨 Coreg sponsor ${cid} verstuurd NA shortform`))
-                .catch(err => warn(`⚠️ Coreg sponsor ${cid} fout bij verzending NA shortform:`, err));
+                .catch(err =>
+                  warn(`⚠️ Coreg sponsor ${cid} fout bij verzending NA shortform:`, err)
+                );
             }
           } catch (err) {
             error("💥 Coreg-verzending na shortform fout:", err);
@@ -298,11 +323,15 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   btn.addEventListener("click", handleShortForm, true);
-  form.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") handleShortForm(e);
-  }, true);
+  form.addEventListener(
+    "keydown",
+    e => {
+      if (e.key === "Enter") handleShortForm(e);
+    },
+    true
+  );
 });
-
+  
   // -----------------------------------------------------------
   // 🔹 Longform — volledig async
   // -----------------------------------------------------------
