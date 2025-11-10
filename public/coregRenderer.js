@@ -271,28 +271,41 @@ async function initCoregFlow() {
   // 🔹 Einde van coreg-flow
   // ============================================================
   function handleFinalCoreg() {
-    log("🏁 handleFinalCoreg aangeroepen");
+  log("🏁 handleFinalCoreg aangeroepen");
 
-    const requiresLongForm = sessionStorage.getItem("requiresLongForm") === "true";
-    const pending = JSON.parse(sessionStorage.getItem("longFormCampaigns") || "[]");
-    const hasLongFormCampaigns = Array.isArray(pending) && pending.length > 0;
+  const requiresLongForm = sessionStorage.getItem("requiresLongForm") === "true";
+  const pending = JSON.parse(sessionStorage.getItem("longFormCampaigns") || "[]");
+  const hasLongFormCampaigns = Array.isArray(pending) && pending.length > 0;
 
-    const btnLongform = document.getElementById("coreg-longform-btn");
-    const btnFinish = document.getElementById("coreg-finish-btn");
+  const btnLongform = document.getElementById("coreg-longform-btn");
+  const btnFinish = document.getElementById("coreg-finish-btn");
 
-    if ((requiresLongForm || hasLongFormCampaigns) && btnLongform) {
-      log("🧾 Alle coreg vragen afgerond → toon long form", pending);
-      btnLongform.click();
-    } else if (btnFinish) {
-      log("✅ Geen longform sponsors → afronden coreg flow");
-      sessionStorage.setItem("coregFlowCompleted", "true");
-      log("🏁 Coreg flow volledig afgerond — antwoorden klaar om te verzenden na shortform.");
-      btnFinish.click();
+  if ((requiresLongForm || hasLongFormCampaigns) && btnLongform) {
+    log("🧾 Alle coreg vragen afgerond → toon long form", pending);
+    btnLongform.click();
+  } else if (btnFinish) {
+    log("✅ Geen longform sponsors → afronden coreg flow");
+
+    // 🔹 Markeer coreg als volledig afgerond
+    sessionStorage.setItem("coregFlowCompleted", "true");
+    window.coregAnswersReady = true;
+
+    // 🔥 Extra debug: bevestig dat antwoorden aanwezig zijn
+    const allCoregKeys = Object.keys(sessionStorage).filter(k => k.startsWith("f_2014_coreg_answer_"));
+    if (allCoregKeys.length) {
+      log(`🧾 ${allCoregKeys.length} coreg-antwoorden klaar voor verzending na shortform.`);
     } else {
-      warn("⚠️ Geen longform- of finish-knop gevonden");
-      sessionStorage.setItem("coregFlowCompleted", "true");
+      warn("⚠️ Geen coreg-antwoorden gevonden bij afronden coreg flow!");
     }
+
+    log("🏁 Coreg flow volledig afgerond — antwoorden klaar om te verzenden na shortform.");
+    btnFinish.click();
+  } else {
+    warn("⚠️ Geen longform- of finish-knop gevonden");
+    sessionStorage.setItem("coregFlowCompleted", "true");
+    window.coregAnswersReady = true;
   }
+}
 
   // ============ Event Listeners ============
   sections.forEach(section => {
