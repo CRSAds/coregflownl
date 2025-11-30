@@ -164,6 +164,8 @@ async function buildCoregPayload(campaign, answerValue) {
 async function initCoregFlow() {
   log("🚀 initCoregFlow gestart");
 
+  window.pendingShortCoreg = window.pendingShortCoreg || [];
+
   const container = document.getElementById("coreg-container");
   if (!container) return;
 
