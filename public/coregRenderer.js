@@ -1,6 +1,7 @@
 // =============================================================
-// ✅ coregRenderer.js — stabiele versie met coreg_answer + multistep + juiste longform timing
-//    + ondersteuning voor coreg vóór of na shortform (pendingShortCoreg)
+// ✅ coregRenderer.js — coreg_answer + multistep + juiste longform timing
+//    + ondersteuning voor coreg vóór/na shortform (pendingShortCoreg)
+//    + correcte handling van has_own_campaign antwoorden
 // =============================================================
 
 if (typeof window.API_COREG === "undefined") {
@@ -11,7 +12,7 @@ const API_COREG = window.API_COREG;
 // =============================================================
 // 🔧 Logging toggle
 // =============================================================
-const DEBUG = false; // ← Zet op false in productie en true bij testen
+const DEBUG = false; // ← Zet op true bij testen
 const log = (...args) => { if (DEBUG) console.log(...args); };
 const warn = (...args) => { if (DEBUG) console.warn(...args); };
 const error = (...args) => { if (DEBUG) console.error(...args); };
@@ -43,8 +44,8 @@ function renderCampaignBlock(campaign, steps) {
           <option value="">Maak een keuze...</option>
           ${answers.map(opt => `
             <option value="${opt.answer_value}"
-                    data-cid="${opt.has_own_campaign ? opt.cid : campaign.cid}"
-                    data-sid="${opt.has_own_campaign ? opt.sid : campaign.sid}">
+                    data-cid="${opt.cid}"
+                    data-sid="${opt.sid}">
               ${opt.label}
             </option>`).join("")}
         </select>
@@ -64,8 +65,8 @@ function renderCampaignBlock(campaign, steps) {
           <button class="flow-next btn-answer"
                   data-answer="${opt.answer_value || "yes"}"
                   data-campaign="${campaign.id}"
-                  data-cid="${opt.has_own_campaign ? opt.cid : campaign.cid}"
-                  data-sid="${opt.has_own_campaign ? opt.sid : campaign.sid}">
+                  data-cid="${opt.cid}"
+                  data-sid="${opt.sid}">
             ${opt.label}
           </button>`).join("")}
         <button class="flow-next btn-skip"
@@ -119,8 +120,8 @@ async function buildCoregPayload(campaign, answerValue) {
     answerValue.sid = campaign.sid;
   }
 
-  const cid = answerValue.cid;
-  const sid = answerValue.sid;
+  const cid = String(answerValue.cid);
+  const sid = String(answerValue.sid);
   const coregAnswer = answerValue?.answer_value || answerValue || "";
 
   const key = `coreg_answers_${cid}`;
@@ -165,15 +166,18 @@ async function initCoregFlow() {
 
   // 🆕 Pending shortform coreg opslaan (voor het geval coreg vóór shortform staat)
   function queueShortCoreg(camp, answerValue) {
-    if (!camp?.cid || !camp?.sid) return;
+    const answerCid = String(answerValue?.cid || camp?.cid || "");
+    const answerSid = String(answerValue?.sid || camp?.sid || "");
+    if (!answerCid || !answerSid) return;
+
     const pending = JSON.parse(sessionStorage.getItem("pendingShortCoreg") || "[]");
     pending.push({
-      cid: camp.cid,
-      sid: camp.sid,
-      answer_value: answerValue?.answer_value || answerValue || null,
+      cid: answerCid,
+      sid: answerSid,
+      answer_value: answerValue?.answer_value || answerValue || "",
     });
     sessionStorage.setItem("pendingShortCoreg", JSON.stringify(pending));
-    log("🟡 Shortform coreg opgeslagen (pendingShortCoreg):", camp.cid, camp.sid);
+    log("🟡 Shortform coreg opgeslagen (pendingShortCoreg):", answerCid, answerSid);
   }
 
   const container = document.getElementById("coreg-container");
@@ -189,6 +193,11 @@ async function initCoregFlow() {
   campaigns.forEach(c => {
     const lf = (c.requiresLongForm ?? c.requires_long_form ?? false);
     c.requiresLongForm = lf === true || lf === "true";
+    c.is_shortform_coreg =
+      c.is_shortform_coreg === true ||
+      c.is_shortform_coreg === "true" ||
+      c.is_shortform === true ||
+      c.is_shortform === "true";
   });
 
   const ordered = [...campaigns].sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -249,7 +258,6 @@ async function initCoregFlow() {
     }
     if (val) val.textContent = percent + "%";
 
-    // Dynamische motiverende tekst
     if (motivationEl) {
       let msg = "Een paar makkelijke vragen en je bent er 🎯";
       if (percent >= 25 && percent < 50) msg = "Top! Nog maar een paar vragen ⚡️";
@@ -302,19 +310,28 @@ async function initCoregFlow() {
         const opt = e.target.selectedOptions[0];
         if (!opt || !opt.value) return;
         const camp = campaigns.find(c => c.id == dropdown.dataset.campaign);
-        const answerValue = { answer_value: opt.value, cid: opt.dataset.cid, sid: opt.dataset.sid };
+        const answerValue = {
+          answer_value: opt.value,
+          cid: opt.dataset.cid || camp.cid,
+          sid: opt.dataset.sid || camp.sid
+        };
         log("🟢 Dropdown keuze →", answerValue);
 
-        // dropdown antwoord bewaren
-        sessionStorage.setItem(`f_2575_coreg_answer_dropdown_${camp.cid}`, opt.value);
-        saveCoregAnswer(camp.cid, answerValue.answer_value);
+        const answerCid = answerValue.cid || camp.cid;
+        sessionStorage.setItem(`f_2575_coreg_answer_dropdown_${answerCid}`, opt.value);
+        saveCoregAnswer(answerCid, answerValue.answer_value);
 
         const idx = sections.indexOf(section);
         const currentCid = String(camp.cid ?? "");
         const hasMoreSteps = sections.slice(idx + 1).some(s => String(s.dataset.cid || "") === currentCid);
 
-        // Longform: zoals altijd → NIET direct verzenden
-        if (camp.requiresLongForm) {
+        const isLongForm = camp.requiresLongForm === true;
+        const isShortCoreg =
+          camp.is_shortform_coreg === true ||
+          camp.is_shortform_coreg === "true";
+        const shortFormCompleted = sessionStorage.getItem("shortFormCompleted") === "true";
+
+        if (isLongForm) {
           sessionStorage.setItem("requiresLongForm", "true");
           const pendingLF = JSON.parse(sessionStorage.getItem("longFormCampaigns") || "[]");
           if (!pendingLF.find(p => p.cid === camp.cid && p.sid === camp.sid)) {
@@ -326,10 +343,6 @@ async function initCoregFlow() {
           return;
         }
 
-        const isShortCoreg = !camp.requiresLongForm;
-        const shortFormCompleted = sessionStorage.getItem("shortFormCompleted") === "true";
-
-        // Als er nog GEEN shortform is ingevuld → pending opslaan
         if (!hasMoreSteps && isShortCoreg && !shortFormCompleted) {
           queueShortCoreg(camp, answerValue);
           showNextSection(section);
@@ -339,10 +352,9 @@ async function initCoregFlow() {
         if (hasMoreSteps) {
           showNextSection(section);
         } else {
-          // Normale situatie (shortform al gedaan of coreg na shortform) → direct versturen
           const payload = await buildCoregPayload(camp, answerValue);
           sendLeadToDatabowl(payload);
-          sessionStorage.removeItem(`coreg_answers_${camp.cid}`);
+          sessionStorage.removeItem(`coreg_answers_${answerCid}`);
           showNextSection(section);
         }
       });
@@ -360,25 +372,35 @@ async function initCoregFlow() {
     section.querySelectorAll(".btn-answer, .btn-skip").forEach(btn => {
       btn.addEventListener("click", async () => {
         const camp = campaigns.find(c => c.id == btn.dataset.campaign);
-        const answerValue = { answer_value: btn.dataset.answer, cid: btn.dataset.cid, sid: btn.dataset.sid };
+        const answerValue = {
+          answer_value: btn.dataset.answer,
+          cid: btn.dataset.cid || camp.cid,
+          sid: btn.dataset.sid || camp.sid
+        };
         log("🟢 Button klik →", answerValue);
-        const labelText = btn.textContent.toLowerCase();
+
+        const labelText = (btn.textContent || "").toLowerCase();
         const answerVal = (btn.dataset.answer || "").toLowerCase();
-        const isNegative = btn.classList.contains("btn-skip") ||
-          /(^|\s)(nee|geen interesse|sla over)(\s|$)/i.test(labelText) || answerVal === "no";
+        const isNegative =
+          btn.classList.contains("btn-skip") ||
+          /(^|\s)(nee|geen interesse|sla over)(\s|$)/i.test(labelText) ||
+          answerVal === "no";
         const isPositive = !isNegative;
 
         if (isPositive) {
           const idx = sections.indexOf(section);
           const currentCid = String(camp.cid ?? "");
           const hasMoreSteps = sections.slice(idx + 1).some(s => String(s.dataset.cid || "") === currentCid);
-          saveCoregAnswer(camp.cid, answerValue.answer_value);
+
+          const answerCid = answerValue.cid || camp.cid;
+          saveCoregAnswer(answerCid, answerValue.answer_value);
 
           const isLongForm = camp.requiresLongForm === true;
-          const isShortCoreg = !camp.requiresLongForm;
+          const isShortCoreg =
+            camp.is_shortform_coreg === true ||
+            camp.is_shortform_coreg === "true";
           const shortFormCompleted = sessionStorage.getItem("shortFormCompleted") === "true";
 
-          // Longform-sponsors: alleen in queue, niet verzenden
           if (isLongForm) {
             sessionStorage.setItem("requiresLongForm", "true");
             const pendingLF = JSON.parse(sessionStorage.getItem("longFormCampaigns") || "[]");
@@ -391,22 +413,18 @@ async function initCoregFlow() {
             return;
           }
 
-          // Multi-step binnen zelfde CID
           if (hasMoreSteps) {
             showNextSection(section);
           } else {
-            // Laatste stap van deze campagne
             if (isShortCoreg && !shortFormCompleted) {
-              // Coreg vóór shortform → pending opslaan
               queueShortCoreg(camp, answerValue);
               showNextSection(section);
               return;
             }
 
-            // Shortform al gedaan of coreg na shortform → direct lead
             const payload = await buildCoregPayload(camp, answerValue);
             sendLeadToDatabowl(payload);
-            sessionStorage.removeItem(`coreg_answers_${camp.cid}`);
+            sessionStorage.removeItem(`coreg_answers_${answerCid}`);
             showNextSection(section);
           }
         } else {
