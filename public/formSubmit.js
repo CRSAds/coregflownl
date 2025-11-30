@@ -251,48 +251,62 @@ if (!window.formSubmitInitialized) {
             }
 
             // 3) 🆕 Pending shortform coreg campagnes versturen
-            try {
-              const pendingStr = sessionStorage.getItem("pendingShortCoreg") || "[]";
-              let pending = [];
-              try {
-                pending = JSON.parse(pendingStr);
-              } catch {
-                pending = [];
-              }
+try {
+  // 3a. Lees eerst uit global memory
+  let pending = Array.isArray(window.pendingShortCoreg)
+    ? [...window.pendingShortCoreg]
+    : [];
 
-              if (Array.isArray(pending) && pending.length) {
-                log("📨 Verstuur pending shortform coreg leads:", pending);
+  // 3b. Als dat leeg is, fallback naar sessionStorage
+  if (!pending.length) {
+    const pendingStr = sessionStorage.getItem("pendingShortCoreg") || "[]";
+    try {
+      pending = JSON.parse(pendingStr);
+    } catch {
+      pending = [];
+    }
+  }
 
-                await Promise.allSettled(
-                  pending.map(async camp => {
-                    if (!camp?.cid || !camp?.sid) return;
-                    const coregAns =
-                      sessionStorage.getItem(`f_2014_coreg_answer_${camp.cid}`) ||
-                      camp.answer_value ||
-                      "";
-                    const dropdownAns =
-                      sessionStorage.getItem(`f_2575_coreg_answer_dropdown_${camp.cid}`) || undefined;
+  log("🔎 pendingShortCoreg (window + sessionStorage):", pending);
 
-                    const payload = await window.buildPayload({
-                      cid: camp.cid,
-                      sid: camp.sid,
-                      is_shortform: true,
-                      f_2014_coreg_answer: coregAns || undefined,
-                      f_2575_coreg_answer_dropdown: dropdownAns,
-                    });
+  if (Array.isArray(pending) && pending.length) {
+    log("📨 Verstuur pending shortform coreg leads:", pending);
 
-                    return window.fetchLead(payload);
-                  })
-                );
+    await Promise.allSettled(
+      pending.map(async (camp) => {
+        if (!camp?.cid || !camp?.sid) return;
 
-                sessionStorage.removeItem("pendingShortCoreg");
-                log("✅ Pending shortform-coreg leads verzonden.");
-              } else {
-                log("ℹ️ Geen pending shortform-coreg campagnes.");
-              }
-            } catch (err) {
-              error("❌ Fout bij verwerken pendingShortCoreg:", err);
-            }
+        const coregAns =
+          sessionStorage.getItem(`f_2014_coreg_answer_${camp.cid}`) ||
+          camp.answer_value ||
+          "";
+        const dropdownAns =
+          sessionStorage.getItem(`f_2575_coreg_answer_dropdown_${camp.cid}`) ||
+          undefined;
+
+        const payload = await window.buildPayload({
+          cid: camp.cid,
+          sid: camp.sid,
+          is_shortform: true,
+          f_2014_coreg_answer: coregAns || undefined,
+          f_2575_coreg_answer_dropdown: dropdownAns,
+        });
+
+        log("➡️ Pending coreg payload:", payload);
+        return window.fetchLead(payload);
+      })
+    );
+
+    // 3c. Na verzending alles leegmaken
+    sessionStorage.removeItem("pendingShortCoreg");
+    window.pendingShortCoreg = [];
+    log("✅ Pending shortform-coreg leads verzonden & buffers geleegd.");
+  } else {
+    log("ℹ️ Geen pending shortform-coreg campagnes.");
+  }
+} catch (err) {
+  error("❌ Fout bij verwerken pendingShortCoreg:", err);
+}
 
           } catch (err) {
             error("💥 Async shortform fout:", err);
