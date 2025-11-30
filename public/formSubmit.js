@@ -9,7 +9,7 @@ if (!window.formSubmitInitialized) {
   window.submittedCampaigns = window.submittedCampaigns || new Set();
 
   // 🔧 Toggle logging hier
-  const DEBUG = false; // ← zet op false in productie en true bij testen
+  const DEBUG = false; // ← zet op true bij testen
   const log = (...args) => { if (DEBUG) console.log(...args); };
   const warn = (...args) => { if (DEBUG) console.warn(...args); };
   const error = (...args) => { if (DEBUG) console.error(...args); };
@@ -92,7 +92,7 @@ if (!window.formSubmitInitialized) {
       sub2,
       f_1453_campagne_url: campaignUrl,
       f_17_ipaddress: ip,
-      f_55_optindate: optindate, // ✅ nieuw toegevoegd
+      f_55_optindate: optindate,
       is_shortform: campaign.is_shortform || false,
     };
 
@@ -351,10 +351,9 @@ if (!window.formSubmitInitialized) {
 
       if (!data.valid) {
         alert("Adres niet gevonden. Controleer uw postcode en huisnummer.");
-        return; // ❌ Blokkeer longform
+        return;
       }
 
-      // Automatische aanvulling (alleen invullen als leeg)
       if (data.street && !document.getElementById("straat").value)
         document.getElementById("straat").value = data.street;
 
