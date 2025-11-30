@@ -1,14 +1,16 @@
 import { fetchWithRetry } from "./utils/fetchDirectus.js";
 
 export default async function handler(req, res) {
-  // === CORS ===
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") return res.status(200).end();
 
   try {
-    const url = `${process.env.DIRECTUS_URL}/items/coreg_campaigns?filter[is_live][_eq]=true&fields=*,image.id,image.filename_download,coreg_answers.*,coreg_dropdown_options.*,more_info&sort=order`;
+    const url = `${process.env.DIRECTUS_URL}/items/coreg_campaigns
+      ?filter[is_live][_eq]=true
+      &fields=*,is_shortform_coreg,requiresLongForm,image.id,image.filename_download,coreg_answers.*,coreg_dropdown_options.*,more_info
+      &sort=order`;
 
     const json = await fetchWithRetry(url, {
       headers: { Authorization: `Bearer ${process.env.DIRECTUS_TOKEN}` },
@@ -44,17 +46,11 @@ export default async function handler(req, res) {
           : normalizedSid,
       }));
 
-      const is_shortform_coreg =
-        camp.is_shortform_coreg === true ||
-        camp.is_shortform_coreg === "true" ||
-        camp.is_shortform === true ||
-        camp.is_shortform === "true";
-
       return {
         ...camp,
         cid: normalizedCid,
         sid: normalizedSid,
-        is_shortform_coreg,
+        is_shortform_coreg: camp.is_shortform_coreg === true,
         coreg_answers: answers,
         coreg_dropdown_options: dropdowns,
       };
