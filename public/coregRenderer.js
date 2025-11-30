@@ -166,19 +166,30 @@ async function initCoregFlow() {
 
   // 🆕 Pending shortform coreg opslaan (voor het geval coreg vóór shortform staat)
   function queueShortCoreg(camp, answerValue) {
-    const answerCid = String(answerValue?.cid || camp?.cid || "");
-    const answerSid = String(answerValue?.sid || camp?.sid || "");
-    if (!answerCid || !answerSid) return;
+  const answerCid = String(answerValue?.cid || camp?.cid || "");
+  const answerSid = String(answerValue?.sid || camp?.sid || "");
+  if (!answerCid || !answerSid) return;
 
-    const pending = JSON.parse(sessionStorage.getItem("pendingShortCoreg") || "[]");
-    pending.push({
-      cid: answerCid,
-      sid: answerSid,
-      answer_value: answerValue?.answer_value || answerValue || "",
-    });
-    sessionStorage.setItem("pendingShortCoreg", JSON.stringify(pending));
-    log("🟡 Shortform coreg opgeslagen (pendingShortCoreg):", answerCid, answerSid);
+  // 🔹 Houd ook een kopie in memory
+  window.pendingShortCoreg = window.pendingShortCoreg || [];
+  window.pendingShortCoreg.push({
+    cid: answerCid,
+    sid: answerSid,
+    answer_value: answerValue?.answer_value || answerValue || "",
+  });
+
+  // 🔹 En sync naar sessionStorage (fallback)
+  try {
+    sessionStorage.setItem(
+      "pendingShortCoreg",
+      JSON.stringify(window.pendingShortCoreg)
+    );
+  } catch (e) {
+    console.warn("⚠️ Kon pendingShortCoreg niet in sessionStorage opslaan:", e);
   }
+
+  log("🟡 Shortform coreg opgeslagen (pendingShortCoreg):", answerCid, answerSid);
+}
 
   const container = document.getElementById("coreg-container");
   if (!container) {
