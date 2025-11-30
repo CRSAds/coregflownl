@@ -177,11 +177,8 @@ async function initCoregFlow() {
     const lf = c.requiresLongForm ?? c.requires_long_form ?? false;
     c.requiresLongForm = lf === true || lf === "true";
 
-    c.is_shortform_coreg =
-      c.is_shortform_coreg === true ||
-      c.is_shortform_coreg === "true" ||
-      c.is_shortform === true ||
-      c.is_shortform === "true";
+  c.is_shortform_coreg = c.is_shortform_coreg === true;
+    
   });
 
   // Sorteer + groepeer
