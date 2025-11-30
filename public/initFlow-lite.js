@@ -1,6 +1,5 @@
 // =============================================================
 // ✅ initFlow-lite.js — stabiele versie met shortform & longform event flow
-//    + pendingShortCoreg verwerking na shortform
 // =============================================================
 
 window.addEventListener("DOMContentLoaded", initFlowLite);
@@ -171,8 +170,8 @@ function initFlowLite() {
     }
   });
 
-  // 6️⃣ Automatische doorgang na shortform + pendingShortCoreg verwerken
-  document.addEventListener("shortFormSubmitted", async () => {
+  // 6️⃣ Automatische doorgang na shortform
+  document.addEventListener("shortFormSubmitted", () => {
     console.log("✅ Shortform voltooid → door naar volgende sectie");
     const current = document.getElementById("lead-form")?.closest(".flow-section") || document.getElementById("lead-form");
     if (!current) return;
@@ -191,64 +190,6 @@ function initFlowLite() {
       startSovendusIfNeeded(next);
     } else {
       console.log("🏁 Einde flow na shortform");
-    }
-
-    // 🆕 HIER: pending shortform coreg leads versturen
-    try {
-      let pending = Array.isArray(window.pendingShortCoreg)
-        ? [...window.pendingShortCoreg]
-        : [];
-
-      if (!pending.length) {
-        const stored = sessionStorage.getItem("pendingShortCoreg") || "[]";
-        try {
-          pending = JSON.parse(stored);
-        } catch {
-          pending = [];
-        }
-      }
-
-      console.log("🔎 pendingShortCoreg (initFlow-lite):", pending);
-
-      if (!pending.length) {
-        console.log("ℹ️ Geen pending shortform-coreg campagnes (initFlow-lite).");
-        return;
-      }
-
-      if (typeof window.buildPayload !== "function" || typeof window.fetchLead !== "function") {
-        console.warn("⚠️ buildPayload of fetchLead niet beschikbaar — kan pending coreg niet versturen.");
-        return;
-      }
-
-      await Promise.allSettled(
-        pending.map(async (camp) => {
-          if (!camp?.cid || !camp?.sid) return;
-
-          const coregAns =
-            sessionStorage.getItem(`f_2014_coreg_answer_${camp.cid}`) ||
-            camp.answer_value ||
-            "";
-          const dropdownAns =
-            sessionStorage.getItem(`f_2575_coreg_answer_dropdown_${camp.cid}`) || undefined;
-
-          const payload = await window.buildPayload({
-            cid: camp.cid,
-            sid: camp.sid,
-            is_shortform: true,
-            f_2014_coreg_answer: coregAns || undefined,
-            f_2575_coreg_answer_dropdown: dropdownAns,
-          });
-
-          console.log("➡️ Pending coreg payload (initFlow-lite):", payload);
-          return window.fetchLead(payload);
-        })
-      );
-
-      sessionStorage.removeItem("pendingShortCoreg");
-      window.pendingShortCoreg = [];
-      console.log("✅ Pending shortform-coreg leads verzonden (initFlow-lite).");
-    } catch (err) {
-      console.error("❌ Fout bij verwerken pendingShortCoreg (initFlow-lite):", err);
     }
   });
 
