@@ -1,13 +1,13 @@
 // =============================================================
 // ✅ formSubmit.js — unified versie met auto-jump DOB, IP-tracking,
 // shortform (925) + co-sponsors + longform + CID/SID fix
-// + pendingShortCoreg → verplaatst naar shortFormSubmitted event
+// + pendingShortCoreg → afgehandeld in initFlow-lite.js
 // =============================================================
 
 if (!window.formSubmitInitialized) {
   window.formSubmitInitialized = true;
   window.submittedCampaigns = window.submittedCampaigns || new Set();
-  window.pendingShortCoreg = window.pendingShortCoreg || []; // 🆕 buffer
+  window.pendingShortCoreg = window.pendingShortCoreg || []; // buffer voor coreg vóór shortform
 
   const DEBUG = true;
   const log = (...a) => DEBUG && console.log(...a);
@@ -55,8 +55,7 @@ if (!window.formSubmitInitialized) {
     const sub_id = sessionStorage.getItem("sub_id") || "unknown";
     const sub2 = sessionStorage.getItem("sub2") || "unknown";
 
-    const campaignUrl =
-      `${window.location.origin}${window.location.pathname}?status=online`;
+    const campaignUrl = `${window.location.origin}${window.location.pathname}?status=online`;
 
     // DOB
     const dobValue = sessionStorage.getItem("dob");
@@ -134,11 +133,12 @@ if (!window.formSubmitInitialized) {
   window.fetchLead = fetchLead;
 
   // -----------------------------------------------------------
-  // Shortform logica
+  // Shortform — belangrijkste flow
   // -----------------------------------------------------------
   document.addEventListener("DOMContentLoaded", () => {
     const form = document.getElementById("lead-form");
     if (!form) return;
+
     const btn = form.querySelector(".flow-next, button[type='submit']");
     if (!btn) return;
 
@@ -153,6 +153,7 @@ if (!window.formSubmitInitialized) {
         form.reportValidity();
         return;
       }
+
       if (submitting) return;
       submitting = true;
       btn.disabled = true;
@@ -171,28 +172,41 @@ if (!window.formSubmitInitialized) {
           }
         });
 
+        // 🟢 CRUCIAAL: markeer shortform als voltooid
         sessionStorage.setItem("shortFormCompleted", "true");
+        log("✅ shortFormCompleted = true (formSubmit.js)");
 
-        // async IIFE
+        // =============================
+        // 🔥 async verzending
+        // =============================
         (async () => {
           try {
-            // 1) shortform 925
-            const p925 = await buildPayload({ cid: "925", sid: "34", is_shortform: true });
-            window.fetchLead(p925).then(() => log("✔ Shortform lead verstuurd"));
+            // 1) 925-campagne versturen
+            const p925 = await buildPayload({
+              cid: "925",
+              sid: "34",
+              is_shortform: true
+            });
+            fetchLead(p925);
 
             // 2) cosponsors
             const accepted = sessionStorage.getItem("sponsorsAccepted") === "true";
             if (accepted) {
               const r = await fetch("https://globalcoregflow-nl.vercel.app/api/cosponsors.js");
               const json = await r.json();
+
               if (json.data?.length) {
                 Promise.allSettled(
                   json.data.map(async s => {
-                    const sp = await buildPayload({ cid: s.cid, sid: s.sid, is_shortform: true });
-                    return window.fetchLead(sp);
+                    const sp = await buildPayload({
+                      cid: s.cid, sid: s.sid, is_shortform: true
+                    });
+                    return fetchLead(sp);
                   })
                 );
               }
+            } else {
+              warn("⚠️ Sponsors niet geaccepteerd → geen co-sponsors verzonden");
             }
 
           } catch (err) {
@@ -200,7 +214,8 @@ if (!window.formSubmitInitialized) {
           }
         })();
 
-        // 🚀 Trigger flow-change (Swipe Pages)
+        // 🚀 Flow vervolgen + pending shortform coreg wordt
+        // afgehandeld in initFlow-lite.js
         document.dispatchEvent(new Event("shortFormSubmitted"));
         log("➡️ Flow direct vervolgd (fire-and-forget)");
 
@@ -219,7 +234,7 @@ if (!window.formSubmitInitialized) {
   });
 
   // -----------------------------------------------------------
-  // Longform (ongewijzigd)
+  // Longform
   // -----------------------------------------------------------
   document.addEventListener("click", async (e) => {
     if (!e.target.matches("#submit-long-form")) return;
@@ -302,3 +317,5 @@ if (!window.formSubmitInitialized) {
       });
     }
   });
+
+}
