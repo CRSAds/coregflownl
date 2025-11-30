@@ -1,6 +1,7 @@
 // =============================================================
 // ✅ formSubmit.js — unified versie met auto-jump DOB, IP-tracking,
 // shortform (925) + co-sponsors + longform + CID/SID fix + DEBUG toggle
+//    + pendingShortCoreg verwerking na shortform
 // =============================================================
 
 if (!window.formSubmitInitialized) {
@@ -41,67 +42,67 @@ if (!window.formSubmitInitialized) {
     return ip;
   }
 
-// -----------------------------------------------------------
-// 🔹 Payload opbouwen
-// -----------------------------------------------------------
-async function buildPayload(campaign = {}) {
-  const ip = await getIpOnce();
+  // -----------------------------------------------------------
+  // 🔹 Payload opbouwen
+  // -----------------------------------------------------------
+  async function buildPayload(campaign = {}) {
+    const ip = await getIpOnce();
 
-  const t_id = sessionStorage.getItem("t_id") || crypto.randomUUID();
-  const aff_id = sessionStorage.getItem("aff_id") || "unknown";
-  const offer_id = sessionStorage.getItem("offer_id") || "unknown";
-  const sub_id = sessionStorage.getItem("sub_id") || "unknown";
-  const sub2 = sessionStorage.getItem("sub2") || "unknown";
-  const campaignUrl = `${window.location.origin}${window.location.pathname}?status=online`;
+    const t_id = sessionStorage.getItem("t_id") || crypto.randomUUID();
+    const aff_id = sessionStorage.getItem("aff_id") || "unknown";
+    const offer_id = sessionStorage.getItem("offer_id") || "unknown";
+    const sub_id = sessionStorage.getItem("sub_id") || "unknown";
+    const sub2 = sessionStorage.getItem("sub2") || "unknown";
+    const campaignUrl = `${window.location.origin}${window.location.pathname}?status=online`;
 
-  // ✅ DOB parsing
-  const dobValue = sessionStorage.getItem("dob");
-  let dob = "";
-  if (dobValue && dobValue.includes("/")) {
-    const [dd, mm, yyyy] = dobValue.split("/");
-    if (dd && mm && yyyy) dob = `${yyyy}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")}`;
+    // ✅ DOB parsing
+    const dobValue = sessionStorage.getItem("dob");
+    let dob = "";
+    if (dobValue && dobValue.includes("/")) {
+      const [dd, mm, yyyy] = dobValue.split("/");
+      if (dd && mm && yyyy) dob = `${yyyy}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")}`;
+    }
+
+    // ✅ CID/SID fix
+    let cid = campaign.cid;
+    let sid = campaign.sid;
+    if (cid === "undefined" || cid === undefined || cid === "") cid = null;
+    if (sid === "undefined" || sid === undefined || sid === "") sid = null;
+
+    // ✅ Optindate (UTC ISO +0000)
+    const optindate = new Date().toISOString().split(".")[0] + "+0000";
+
+    const payload = {
+      cid,
+      sid,
+      gender: sessionStorage.getItem("gender") || "",
+      firstname: sessionStorage.getItem("firstname") || "",
+      lastname: sessionStorage.getItem("lastname") || "",
+      email: sessionStorage.getItem("email") || "",
+      postcode: sessionStorage.getItem("postcode") || "",
+      straat: sessionStorage.getItem("straat") || "",
+      huisnummer: sessionStorage.getItem("huisnummer") || "",
+      woonplaats: sessionStorage.getItem("woonplaats") || "",
+      telefoon: sessionStorage.getItem("telefoon") || "",
+      dob,
+      t_id,
+      aff_id,
+      offer_id,
+      sub_id,
+      sub2,
+      f_1453_campagne_url: campaignUrl,
+      f_17_ipaddress: ip,
+      f_55_optindate: optindate, // ✅ nieuw toegevoegd
+      is_shortform: campaign.is_shortform || false,
+    };
+
+    if (campaign.f_2014_coreg_answer)
+      payload.f_2014_coreg_answer = campaign.f_2014_coreg_answer;
+    if (campaign.f_2575_coreg_answer_dropdown)
+      payload.f_2575_coreg_answer_dropdown = campaign.f_2575_coreg_answer_dropdown;
+
+    return payload;
   }
-
-  // ✅ CID/SID fix
-  let cid = campaign.cid;
-  let sid = campaign.sid;
-  if (cid === "undefined" || cid === undefined || cid === "") cid = null;
-  if (sid === "undefined" || sid === undefined || sid === "") sid = null;
-
-  // ✅ Optindate (UTC ISO +0000)
-  const optindate = new Date().toISOString().split(".")[0] + "+0000";
-
-  const payload = {
-    cid,
-    sid,
-    gender: sessionStorage.getItem("gender") || "",
-    firstname: sessionStorage.getItem("firstname") || "",
-    lastname: sessionStorage.getItem("lastname") || "",
-    email: sessionStorage.getItem("email") || "",
-    postcode: sessionStorage.getItem("postcode") || "",
-    straat: sessionStorage.getItem("straat") || "",
-    huisnummer: sessionStorage.getItem("huisnummer") || "",
-    woonplaats: sessionStorage.getItem("woonplaats") || "",
-    telefoon: sessionStorage.getItem("telefoon") || "",
-    dob,
-    t_id,
-    aff_id,
-    offer_id,
-    sub_id,
-    sub2,
-    f_1453_campagne_url: campaignUrl,
-    f_17_ipaddress: ip,
-    f_55_optindate: optindate, // ✅ nieuw toegevoegd
-    is_shortform: campaign.is_shortform || false,
-  };
-
-  if (campaign.f_2014_coreg_answer)
-    payload.f_2014_coreg_answer = campaign.f_2014_coreg_answer;
-  if (campaign.f_2575_coreg_answer_dropdown)
-    payload.f_2575_coreg_answer_dropdown = campaign.f_2575_coreg_answer_dropdown;
-
-  return payload;
-}
   window.buildPayload = buildPayload;
 
   // -----------------------------------------------------------
@@ -217,13 +218,18 @@ async function buildPayload(campaign = {}) {
 
         if (typeof getIpOnce === "function") getIpOnce();
 
+        // ✅ Shortform is succesvol ingevuld
+        sessionStorage.setItem("shortFormCompleted", "true");
+
         (async () => {
           try {
+            // 1) Basis shortform lead (925)
             const basePayload = await window.buildPayload({ cid: "925", sid: "34", is_shortform: true });
             window.fetchLead(basePayload)
               .then(r => log("✅ Shortform 925 async verzonden:", r))
               .catch(err => error("❌ Fout shortform 925 async:", err));
 
+            // 2) Co-sponsors (indien akkoord)
             const accepted = sessionStorage.getItem("sponsorsAccepted") === "true";
             if (accepted) {
               const res = await fetch("https://globalcoregflow-nl.vercel.app/api/cosponsors.js", { cache: "no-store" });
@@ -243,6 +249,51 @@ async function buildPayload(campaign = {}) {
             } else {
               warn("⚠️ Sponsors niet geaccepteerd — geen co-sponsors verzonden");
             }
+
+            // 3) 🆕 Pending shortform coreg campagnes versturen
+            try {
+              const pendingStr = sessionStorage.getItem("pendingShortCoreg") || "[]";
+              let pending = [];
+              try {
+                pending = JSON.parse(pendingStr);
+              } catch {
+                pending = [];
+              }
+
+              if (Array.isArray(pending) && pending.length) {
+                log("📨 Verstuur pending shortform coreg leads:", pending);
+
+                await Promise.allSettled(
+                  pending.map(async camp => {
+                    if (!camp?.cid || !camp?.sid) return;
+                    const coregAns =
+                      sessionStorage.getItem(`f_2014_coreg_answer_${camp.cid}`) ||
+                      camp.answer_value ||
+                      "";
+                    const dropdownAns =
+                      sessionStorage.getItem(`f_2575_coreg_answer_dropdown_${camp.cid}`) || undefined;
+
+                    const payload = await window.buildPayload({
+                      cid: camp.cid,
+                      sid: camp.sid,
+                      is_shortform: true,
+                      f_2014_coreg_answer: coregAns || undefined,
+                      f_2575_coreg_answer_dropdown: dropdownAns,
+                    });
+
+                    return window.fetchLead(payload);
+                  })
+                );
+
+                sessionStorage.removeItem("pendingShortCoreg");
+                log("✅ Pending shortform-coreg leads verzonden.");
+              } else {
+                log("ℹ️ Geen pending shortform-coreg campagnes.");
+              }
+            } catch (err) {
+              error("❌ Fout bij verwerken pendingShortCoreg:", err);
+            }
+
           } catch (err) {
             error("💥 Async shortform fout:", err);
           }
@@ -267,68 +318,68 @@ async function buildPayload(campaign = {}) {
   // -----------------------------------------------------------
   // 🔹 Longform — volledig async
   // -----------------------------------------------------------
-document.addEventListener("click", async (e) => {
-  if (!e.target || !e.target.matches("#submit-long-form")) return;
-  e.preventDefault();
-  e.stopPropagation();
-  e.stopImmediatePropagation();
+  document.addEventListener("click", async (e) => {
+    if (!e.target || !e.target.matches("#submit-long-form")) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
 
-  const form = document.getElementById("long-form");
-  if (!form) return;
+    const form = document.getElementById("long-form");
+    if (!form) return;
 
-  const fields = ["postcode", "straat", "huisnummer", "woonplaats", "telefoon"];
-  const invalid = fields.filter(id => !document.getElementById(id)?.value.trim());
-  if (invalid.length) {
-    alert("Vul alle verplichte velden in.");
-    return;
-  }
-
-  // ----------------------------------------------------
-  // ✅ SERVER-SIDE ADRESVALIDATIE via /api/validateAddressNL
-  // ----------------------------------------------------
-  const pc = document.getElementById("postcode").value.replace(/\s+/g, "");
-  const hn = document.getElementById("huisnummer").value.trim();
-
-  try {
-    const r = await fetch("https://globalcoregflow-nl.vercel.app/api/validateAddressNL.js", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ postcode: pc, huisnummer: hn })
-    });
-
-    const data = await r.json();
-
-    if (!data.valid) {
-      alert("Adres niet gevonden. Controleer uw postcode en huisnummer.");
-      return; // ❌ Blokkeer longform
+    const fields = ["postcode", "straat", "huisnummer", "woonplaats", "telefoon"];
+    const invalid = fields.filter(id => !document.getElementById(id)?.value.trim());
+    if (invalid.length) {
+      alert("Vul alle verplichte velden in.");
+      return;
     }
 
-    // Automatische aanvulling (alleen invullen als leeg)
-    if (data.street && !document.getElementById("straat").value)
-      document.getElementById("straat").value = data.street;
+    // ----------------------------------------------------
+    // ✅ SERVER-SIDE ADRESVALIDATIE via /api/validateAddressNL
+    // ----------------------------------------------------
+    const pc = document.getElementById("postcode").value.replace(/\s+/g, "");
+    const hn = document.getElementById("huisnummer").value.trim();
 
-    if (data.city && !document.getElementById("woonplaats").value)
-      document.getElementById("woonplaats").value = data.city;
+    try {
+      const r = await fetch("https://globalcoregflow-nl.vercel.app/api/validateAddressNL.js", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postcode: pc, huisnummer: hn })
+      });
 
-  } catch (err) {
-    alert("Adresvalidatie niet mogelijk. Probeer opnieuw.");
-    return;
-  }
-  // ----------------------------------------------------
+      const data = await r.json();
 
-  fields.forEach(id => {
-    const v = document.getElementById(id)?.value.trim() || "";
-    if (v) sessionStorage.setItem(id, v);
-  });
+      if (!data.valid) {
+        alert("Adres niet gevonden. Controleer uw postcode en huisnummer.");
+        return; // ❌ Blokkeer longform
+      }
 
-  const pending = JSON.parse(sessionStorage.getItem("longFormCampaigns") || "[]");
-  if (!pending.length) {
-    warn("⚠️ Geen longform campagnes om te versturen");
-    document.dispatchEvent(new Event("longFormSubmitted"));
-    return;
-  }
+      // Automatische aanvulling (alleen invullen als leeg)
+      if (data.street && !document.getElementById("straat").value)
+        document.getElementById("straat").value = data.street;
 
-  if (typeof getIpOnce === "function") getIpOnce();
+      if (data.city && !document.getElementById("woonplaats").value)
+        document.getElementById("woonplaats").value = data.city;
+
+    } catch (err) {
+      alert("Adresvalidatie niet mogelijk. Probeer opnieuw.");
+      return;
+    }
+    // ----------------------------------------------------
+
+    fields.forEach(id => {
+      const v = document.getElementById(id)?.value.trim() || "";
+      if (v) sessionStorage.setItem(id, v);
+    });
+
+    const pending = JSON.parse(sessionStorage.getItem("longFormCampaigns") || "[]");
+    if (!pending.length) {
+      warn("⚠️ Geen longform campagnes om te versturen");
+      document.dispatchEvent(new Event("longFormSubmitted"));
+      return;
+    }
+
+    if (typeof getIpOnce === "function") getIpOnce();
 
     (async () => {
       try {
