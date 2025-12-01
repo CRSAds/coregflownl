@@ -50,7 +50,10 @@ export default async function handler(req, res) {
         ...camp,
         cid: normalizedCid,
         sid: normalizedSid,
-        is_shortform_coreg: camp.is_shortform_coreg === true,
+        is_shortform_coreg:
+        camp.is_shortform_coreg === true ||
+        camp.is_shortform_coreg === "true" ||
+        camp.is_shortform_coreg === 1,
         coreg_answers: answers,
         coreg_dropdown_options: dropdowns,
       };
