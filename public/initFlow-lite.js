@@ -171,98 +171,125 @@ function initFlowLite() {
   });
 
   // 6️⃣ Automatische doorgang na shortform
-    document.addEventListener("shortFormSubmitted", async () => {
-      console.log("✅ Shortform voltooid → door naar volgende sectie");
-    
-      const current =
-        document.getElementById("lead-form")?.closest(".flow-section") ||
-        document.getElementById("lead-form");
-    
-      if (!current) return;
-    
-      let next = current.nextElementSibling;
-    
-      while (next && next.classList.contains("ivr-section") && status === "online") {
+  document.addEventListener("shortFormSubmitted", async () => {
+    console.log("✅ Shortform voltooid → door naar volgende sectie");
+
+    const current =
+      document.getElementById("lead-form")?.closest(".flow-section") ||
+      document.getElementById("lead-form");
+
+    if (!current) return;
+
+    let next = current.nextElementSibling;
+
+    // Skip IVR-secties bij status=online
+    while (next && next.classList.contains("ivr-section") && status === "online") {
+      next = next.nextElementSibling;
+    }
+
+    // 🔍 Zelfde longform-check als bij .flow-next
+    if (next && next.id === "long-form-section") {
+      const showLongForm = sessionStorage.getItem("requiresLongForm") === "true";
+
+      if (!showLongForm) {
+        console.log(
+          "🚫 Geen longform-campagnes positief beantwoord → longform na shortform overslaan"
+        );
         next = next.nextElementSibling;
-      }
-    
-      if (next) {
-        current.style.display = "none";
-        next.style.display = "block";
-        reloadImages(next);
-        window.scrollTo({ top: 0, behavior: "smooth" });
-        console.log("➡️ Volgende sectie getoond:", next.className);
-        startSovendusIfNeeded(next);
+
+        // opnieuw IVR-secties overslaan indien nodig
+        while (next && next.classList.contains("ivr-section") && status === "online") {
+          next = next.nextElementSibling;
+        }
       } else {
-        console.log("🏁 Einde flow na shortform");
+        console.log("✅ Positieve longform-campagne gevonden → longform na shortform tonen");
       }
-    
-      // ============================================================
-      // 🆕 PENDING SHORTFORM COREG → NU VERZENDEN NA SHORTFORM
-      // ============================================================
-      try {
-        let pending = [];
-    
-        // 1) In-memory buffer
-        if (Array.isArray(window.pendingShortCoreg)) {
-          pending = [...window.pendingShortCoreg];
-        }
-    
-        // 2) SessionStorage fallback
-        if (!pending.length) {
-          const stored = sessionStorage.getItem("pendingShortCoreg") || "[]";
-          try { pending = JSON.parse(stored); } catch { pending = []; }
-        }
-    
-        console.log("🔎 pendingShortCoreg:", pending);
-    
-        if (!pending.length) {
-          console.log("ℹ️ Geen pending shortform-coreg campagnes.");
-          return;
-        }
-    
-        if (
-          typeof window.buildPayload !== "function" ||
-          typeof window.fetchLead !== "function"
-        ) {
-          console.warn("⚠️ buildPayload of fetchLead ontbreekt → kan pending coreg niet verzenden.");
-          return;
-        }
-    
-        // 3) Verzend elke gebufferde coreg keuze
-        for (const camp of pending) {
-          if (!camp?.cid || !camp?.sid) continue;
-    
-          const coregAns =
-            sessionStorage.getItem(`f_2014_coreg_answer_${camp.cid}`) ||
-            camp.answer_value ||
-            "";
-    
-          const dropdownAns =
-            sessionStorage.getItem(`f_2575_coreg_answer_dropdown_${camp.cid}`) ||
-            undefined;
-    
-          const payload = await window.buildPayload({
-            cid: camp.cid,
-            sid: camp.sid,
-            is_shortform: true,
-            f_2014_coreg_answer: coregAns || undefined,
-            f_2575_coreg_answer_dropdown: dropdownAns,
-          });
-    
-          console.log("➡️ Verstuur pending coreg payload:", payload);
-          await window.fetchLead(payload);
-        }
-    
-        // 4) Buffer leegmaken
-        window.pendingShortCoreg = [];
-        sessionStorage.removeItem("pendingShortCoreg");
-    
-        console.log("✅ Alle pending shortform-coreg leads verzonden!");
-      } catch (err) {
-        console.error("❌ Fout bij verzenden pendingShortCoreg:", err);
+    }
+
+    // Volgende sectie tonen (of einde van de flow)
+    if (next) {
+      current.style.display = "none";
+      next.style.display = "block";
+      reloadImages(next);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      console.log("➡️ Volgende sectie getoond:", next.className);
+      startSovendusIfNeeded(next);
+    } else {
+      console.log("🏁 Einde flow na shortform");
+    }
+
+    // ============================================================
+    // 🆕 PENDING SHORTFORM COREG → NU VERZENDEN NA SHORTFORM
+    // ============================================================
+    try {
+      let pending = [];
+
+      // 1) In-memory buffer
+      if (Array.isArray(window.pendingShortCoreg)) {
+        pending = [...window.pendingShortCoreg];
       }
-    });
+
+      // 2) SessionStorage fallback
+      if (!pending.length) {
+        const stored = sessionStorage.getItem("pendingShortCoreg") || "[]";
+        try {
+          pending = JSON.parse(stored);
+        } catch {
+          pending = [];
+        }
+      }
+
+      console.log("🔎 pendingShortCoreg:", pending);
+
+      if (!pending.length) {
+        console.log("ℹ️ Geen pending shortform-coreg campagnes.");
+        return;
+      }
+
+      if (
+        typeof window.buildPayload !== "function" ||
+        typeof window.fetchLead !== "function"
+      ) {
+        console.warn(
+          "⚠️ buildPayload of fetchLead ontbreekt → kan pending coreg niet verzenden."
+        );
+        return;
+      }
+
+      // 3) Verzend elke gebufferde coreg keuze
+      for (const camp of pending) {
+        if (!camp?.cid || !camp?.sid) continue;
+
+        const coregAns =
+          sessionStorage.getItem(`f_2014_coreg_answer_${camp.cid}`) ||
+          camp.answer_value ||
+          "";
+
+        const dropdownAns =
+          sessionStorage.getItem(`f_2575_coreg_answer_dropdown_${camp.cid}`) ||
+          undefined;
+
+        const payload = await window.buildPayload({
+          cid: camp.cid,
+          sid: camp.sid,
+          is_shortform: true,
+          f_2014_coreg_answer: coregAns || undefined,
+          f_2575_coreg_answer_dropdown: dropdownAns,
+        });
+
+        console.log("➡️ Verstuur pending coreg payload:", payload);
+        await window.fetchLead(payload);
+      }
+
+      // 4) Buffer leegmaken
+      window.pendingShortCoreg = [];
+      sessionStorage.removeItem("pendingShortCoreg");
+
+      console.log("✅ Alle pending shortform-coreg leads verzonden!");
+    } catch (err) {
+      console.error("❌ Fout bij verzenden pendingShortCoreg:", err);
+    }
+  });
 
   // 7️⃣ System check
   console.groupCollapsed("✅ Global CoregFlow System Check");
