@@ -150,6 +150,10 @@ async function buildCoregPayload(campaign, answerValue) {
 async function initCoregFlow() {
   log("🚀 initCoregFlow gestart");
 
+    // Reset longform state bij elke nieuwe coreg-run
+  sessionStorage.setItem("requiresLongForm", "false");
+  sessionStorage.removeItem("longFormCampaigns");
+
   function saveCoregAnswer(cid, answer) {
     if (!cid || !answer) return;
     const key = `coreg_answers_${cid}`;
