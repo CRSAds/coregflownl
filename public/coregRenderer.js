@@ -350,7 +350,7 @@ function updateProgressBar(sectionIdx) {
         saveCoregAnswer(camp.cid, answerValue.answer_value);
       
         const shortFormCompleted = sessionStorage.getItem("shortFormCompleted") === "true";
-        const isShort = camp.is_shortform_coreg === true || camp.is_shortform_coreg === "true";
+        const isShort = camp.is_shortform_coreg === true;
       
         // 🟣 LONGFORM SPONSOR
         if (camp.requiresLongForm === true || camp.requiresLongForm === "true") {
