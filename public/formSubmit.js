@@ -6,13 +6,15 @@ if (!window.formSubmitInitialized) {
   window.formSubmitInitialized = true;
   window.submittedCampaigns = window.submittedCampaigns || new Set();
 
-  // -----------------------------------------------------------
-  // 🔧 Debug toggle (false = productie)
-  // -----------------------------------------------------------
+  // 🔧 Debug logging volledig uit in productie
   const DEBUG = false;
-  const log   = (...args) => { if (DEBUG) console.log(...args); };
-  const warn  = (...args) => { if (DEBUG) console.warn(...args); };
-  const error = (...args) => console.error(...args); // errors blijven zichtbaar
+  
+  // alles wat log() / warn() aanroept wordt een no-op
+  const log   = () => {};
+  const warn  = () => {};
+  
+  // errors blijven zichtbaar
+  const error = (...args) => console.error(...args);
 
   // -----------------------------------------------------------
   // Tracking opslaan bij pageload
