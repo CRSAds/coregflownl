@@ -241,7 +241,7 @@ function updateProgressBar(sectionIdx) {
 
   // Dynamische motiverende tekst
   if (motivationEl) {
-    let msg = "Een paar makkelijke vragen en je bent er 🎯";
+    let msg = "Beantwoord nu deze vragen 🎯";
     if (percent >= 25 && percent < 50) msg = "Top! Nog maar een paar vragen ⚡️";
     else if (percent >= 50 && percent < 75) msg = "Over de helft — even volhouden! 🚀";
     else if (percent >= 75 && percent < 100) msg = "Bijna klaar — laatste vragen 🙌";
