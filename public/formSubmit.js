@@ -98,11 +98,13 @@ if (!window.formSubmitInitialized) {
       is_shortform: campaign.is_shortform || false,
     };
 
-    if (campaign.f_2014_coreg_answer)
-      payload.f_2014_coreg_answer = campaign.f_2014_coreg_answer;
-
-    if (campaign.f_2575_coreg_answer_dropdown)
-      payload.f_2575_coreg_answer_dropdown = campaign.f_2575_coreg_answer_dropdown;
+    // Coreg answer ophalen uit sessionStorage
+    const coregAns = sessionStorage.getItem(`f_2014_coreg_answer_${cid}`);
+    if (coregAns) payload.f_2014_coreg_answer = coregAns;
+    
+    // Dropdown answer ophalen uit sessionStorage
+    const dropAns = sessionStorage.getItem(`f_2575_coreg_answer_dropdown_${cid}`);
+    if (dropAns) payload.f_2575_coreg_answer_dropdown = dropAns;
 
     return payload;
   }
