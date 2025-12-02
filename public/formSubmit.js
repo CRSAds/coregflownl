@@ -8,12 +8,9 @@ if (!window.formSubmitInitialized) {
 
   // 🔧 Debug logging volledig uit in productie
   const DEBUG = false;
-  
-  // alles wat log() / warn() aanroept wordt een no-op
+
   const log   = () => {};
   const warn  = () => {};
-  
-  // errors blijven zichtbaar
   const error = (...args) => console.error(...args);
 
   // -----------------------------------------------------------
@@ -46,70 +43,71 @@ if (!window.formSubmitInitialized) {
     return ip;
   }
 
-// -----------------------------------------------------------
-// 🔹 Payload opbouwen
-// -----------------------------------------------------------
-async function buildPayload(campaign = {}) {
-  const ip = await getIpOnce();
+  // -----------------------------------------------------------
+  // 🔹 Payload opbouwen
+  // -----------------------------------------------------------
+  async function buildPayload(campaign = {}) {
+    const ip = await getIpOnce();
 
-  const t_id     = sessionStorage.getItem("t_id")     || crypto.randomUUID();
-  const aff_id   = sessionStorage.getItem("aff_id")   || "unknown";
-  const offer_id = sessionStorage.getItem("offer_id") || "unknown";
-  const sub_id   = sessionStorage.getItem("sub_id")   || "unknown";
-  const sub2     = sessionStorage.getItem("sub2")     || "unknown";
+    const t_id     = sessionStorage.getItem("t_id")     || crypto.randomUUID();
+    const aff_id   = sessionStorage.getItem("aff_id")   || "unknown";
+    const offer_id = sessionStorage.getItem("offer_id") || "unknown";
+    const sub_id   = sessionStorage.getItem("sub_id")   || "unknown";
+    const sub2     = sessionStorage.getItem("sub2")     || "unknown";
 
-  const campaignUrl = `${window.location.origin}${window.location.pathname}?status=online`;
+    const campaignUrl = `${window.location.origin}${window.location.pathname}?status=online`;
 
-  // DOB (ISO)
-  const dobValue = sessionStorage.getItem("dob");
-  let dob = "";
-  if (dobValue?.includes("/")) {
-    const [dd, mm, yyyy] = dobValue.split("/");
-    dob = `${yyyy}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")}`;
+    // DOB (ISO)
+    const dobValue = sessionStorage.getItem("dob");
+    let dob = "";
+    if (dobValue?.includes("/")) {
+      const [dd, mm, yyyy] = dobValue.split("/");
+      dob = `${yyyy}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")}`;
+    }
+
+    // CID / SID normaliseren
+    let cid = campaign.cid || null;
+    let sid = campaign.sid || null;
+    if (!cid || cid === "undefined") cid = null;
+    if (!sid || sid === "undefined") sid = null;
+
+    // BASIS PAYLOAD
+    const payload = {
+      cid,
+      sid,
+      gender:     sessionStorage.getItem("gender")     || "",
+      firstname:  sessionStorage.getItem("firstname")  || "",
+      lastname:   sessionStorage.getItem("lastname")   || "",
+      email:      sessionStorage.getItem("email")      || "",
+      postcode:   sessionStorage.getItem("postcode")   || "",
+      straat:     sessionStorage.getItem("straat")     || "",
+      huisnummer: sessionStorage.getItem("huisnummer") || "",
+      woonplaats: sessionStorage.getItem("woonplaats") || "",
+      telefoon:   sessionStorage.getItem("telefoon")   || "",
+      dob,
+      t_id,
+      aff_id,
+      offer_id,
+      sub_id,
+      sub2,
+      f_1453_campagne_url: campaignUrl,
+      f_17_ipaddress: ip,
+      f_55_optindate: new Date().toISOString().split(".")[0] + "+0000",
+      is_shortform: campaign.is_shortform || false,
+    };
+
+    // 🔹 COREGAntwoord toevoegen (als aangeleverd)
+    if (campaign.f_2014_coreg_answer) {
+      payload.f_2014_coreg_answer = campaign.f_2014_coreg_answer;
+    }
+
+    if (campaign.f_2575_coreg_answer_dropdown) {
+      payload.f_2575_coreg_answer_dropdown = campaign.f_2575_coreg_answer_dropdown;
+    }
+
+    return payload;
   }
-
-  // CID / SID normaliseren
-  let cid = campaign.cid || null;
-  let sid = campaign.sid || null;
-  if (!cid || cid === "undefined") cid = null;
-  if (!sid || sid === "undefined") sid = null;
-
-  const payload = {
-    cid,
-    sid,
-    gender:     sessionStorage.getItem("gender")     || "",
-    firstname:  sessionStorage.getItem("firstname")  || "",
-    lastname:   sessionStorage.getItem("lastname")   || "",
-    email:      sessionStorage.getItem("email")      || "",
-    postcode:   sessionStorage.getItem("postcode")   || "",
-    straat:     sessionStorage.getItem("straat")     || "",
-    huisnummer: sessionStorage.getItem("huisnummer") || "",
-    woonplaats: sessionStorage.getItem("woonplaats") || "",
-    telefoon:   sessionStorage.getItem("telefoon")   || "",
-    dob,
-    t_id,
-    aff_id,
-    offer_id,
-    sub_id,
-    sub2,
-    f_1453_campagne_url: campaignUrl,
-    f_17_ipaddress: ip,
-    f_55_optindate: new Date().toISOString().split(".")[0] + "+0000",
-    is_shortform: campaign.is_shortform || false,
-  };
-
-  // 🔹 DIT MOET ÉCHT BINNEN DE FUNCTIE STAAN
-  if (campaign.f_2014_coreg_answer) {
-    payload.f_2014_coreg_answer = campaign.f_2014_coreg_answer;
-  }
-
-  if (campaign.f_2575_coreg_answer_dropdown) {
-    payload.f_2575_coreg_answer_dropdown = campaign.f_2575_coreg_answer_dropdown;
-  }
-
-  return payload;
-}
-window.buildPayload = buildPayload;
+  window.buildPayload = buildPayload;
 
   // -----------------------------------------------------------
   // 🔹 Lead versturen
@@ -144,7 +142,7 @@ window.buildPayload = buildPayload;
   window.fetchLead = fetchLead;
 
   // -----------------------------------------------------------
-  // 🔹 DOB autoformatting (blijft ongewijzigd)
+  // 🔹 DOB autoformatting
   // -----------------------------------------------------------
   document.addEventListener("DOMContentLoaded", () => {
     const dobInput = document.getElementById("dob");
@@ -202,7 +200,6 @@ window.buildPayload = buildPayload;
       btn.disabled = true;
 
       try {
-        // Velden opslaan
         const genderEl = form.querySelector("input[name='gender']:checked");
         if (genderEl) sessionStorage.setItem("gender", genderEl.value);
 
@@ -236,7 +233,6 @@ window.buildPayload = buildPayload;
           } catch {}
         })();
 
-        // Markeer shortform klaar
         sessionStorage.setItem("shortFormCompleted", "true");
         document.dispatchEvent(new Event("shortFormSubmitted"));
 
@@ -269,9 +265,9 @@ window.buildPayload = buildPayload;
     const invalid = fields.filter(id => !document.getElementById(id)?.value.trim());
     if (invalid.length) return alert("Vul alle verplichte velden in.");
 
-    // Server-side adrescheck
     const pc = document.getElementById("postcode").value.replace(/\s+/g, "");
     const hn = document.getElementById("huisnummer").value.trim();
+
     try {
       const r = await fetch("https://globalcoregflow-nl.vercel.app/api/validateAddressNL.js", {
         method: "POST",
@@ -290,7 +286,6 @@ window.buildPayload = buildPayload;
       return alert("Adresvalidatie niet mogelijk.");
     }
 
-    // Opslaan
     fields.forEach(id => sessionStorage.setItem(id, document.getElementById(id).value.trim()));
 
     const pending = JSON.parse(sessionStorage.getItem("longFormCampaigns") || "[]");
@@ -307,12 +302,14 @@ window.buildPayload = buildPayload;
           pending.map(async camp => {
             const ans = sessionStorage.getItem(`f_2014_coreg_answer_${camp.cid}`);
             const drop = sessionStorage.getItem(`f_2575_coreg_answer_dropdown_${camp.cid}`);
+
             const payload = await buildPayload({
               cid: camp.cid,
               sid: camp.sid,
               f_2014_coreg_answer: ans || undefined,
               f_2575_coreg_answer_dropdown: drop || undefined
             });
+
             return window.fetchLead(payload);
           })
         );
@@ -333,7 +330,31 @@ window.buildPayload = buildPayload;
   });
 
   // -----------------------------------------------------------
-  // 🔹 Eén nette loaded melding
+  // 🔄 FIX: pendingShortCoreg → echte coreg antwoorden
+  // -----------------------------------------------------------
+  document.addEventListener("shortFormSubmitted", () => {
+    const pending = JSON.parse(sessionStorage.getItem("pendingShortCoreg") || "[]");
+    if (!pending.length) return;
+
+    pending.forEach(entry => {
+      const { cid, answer_value } = entry;
+
+      const key = `coreg_answers_${cid}`;
+      const existing = JSON.parse(sessionStorage.getItem(key) || "[]");
+
+      if (!existing.includes(answer_value)) {
+        existing.push(answer_value);
+        sessionStorage.setItem(key, JSON.stringify(existing));
+      }
+
+      sessionStorage.setItem(`f_2014_coreg_answer_${cid}`, existing.join(" - "));
+    });
+
+    sessionStorage.removeItem("pendingShortCoreg");
+  });
+
+  // -----------------------------------------------------------
+  // 🔹 Loaded melding
   // -----------------------------------------------------------
   console.info("🎉 formSubmit loaded successfully");
 }
