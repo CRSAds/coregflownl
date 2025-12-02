@@ -8,12 +8,8 @@ if (!window.formSubmitInitialized) {
 
   // 🔧 Debug logging volledig uit in productie
   const DEBUG = false;
-  
-  // alles wat log() / warn() aanroept wordt een no-op
   const log   = () => {};
   const warn  = () => {};
-  
-  // errors blijven zichtbaar
   const error = (...args) => console.error(...args);
 
   // -----------------------------------------------------------
@@ -64,8 +60,15 @@ if (!window.formSubmitInitialized) {
     const dobValue = sessionStorage.getItem("dob");
     let dob = "";
     if (dobValue?.includes("/")) {
-      const [dd, mm, yyyy] = dobValue.split("/");
-      dob = `${yyyy}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")}`;
+      const parts = dobValue.split("/");
+      if (parts.length === 3) {
+        const dd = parts[0].trim();
+        const mm = parts[1].trim();
+        const yyyy = parts[2].trim();
+        if (dd && mm && yyyy) {
+          dob = `${yyyy}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")}`;
+        }
+      }
     }
 
     // CID / SID normaliseren
@@ -141,8 +144,8 @@ if (!window.formSubmitInitialized) {
   window.fetchLead = fetchLead;
 
   // -----------------------------------------------------------
-  // 🔹 DOB autoformatting (blijft ongewijzigd)
-  // -----------------------------------------------------------
+  // 🔹 DOB autoformatting (aangepast: auto-0 + doorschieten)
+// -----------------------------------------------------------
   document.addEventListener("DOMContentLoaded", () => {
     const dobInput = document.getElementById("dob");
     if (!dobInput) return;
@@ -151,24 +154,65 @@ if (!window.formSubmitInitialized) {
     dobInput.inputMode = "numeric";
     dobInput.maxLength = 14;
 
-    const format = digits => {
-      let o = "";
-      if (digits.length >= 1) o += digits[0];
-      if (digits.length >= 2) o += digits[1] + " / ";
-      if (digits.length >= 3) o += digits[2];
-      if (digits.length >= 4) o += digits[3] + " / ";
-      if (digits.length >= 5) o += digits[4];
-      if (digits.length >= 6) o += digits[5];
-      if (digits.length >= 7) o += digits[6];
-      if (digits.length >= 8) o += digits[7];
-      return o;
-    };
-
     dobInput.addEventListener("input", e => {
-      let v = e.target.value.replace(/\D/g, "").slice(0, 8);
-      const formatted = format(v);
+      let digits = e.target.value.replace(/\D/g, "");
+
+      // Dag: bij 1 cijfer 4–9 => 0X
+      if (digits.length === 1) {
+        const d = digits[0];
+        if (d >= "4") {
+          digits = "0" + d;
+        }
+      }
+
+      // Max 8 cijfers totaal (ddmmjjjj)
+      if (digits.length > 8) digits = digits.slice(0, 8);
+
+      let day = "";
+      let month = "";
+      let year = "";
+
+      if (digits.length >= 2) {
+        day = digits.slice(0, 2);
+      }
+
+      let rest = digits.slice(2);
+
+      if (rest.length > 0) {
+        let monthRaw = rest.slice(0, 2);
+
+        if (monthRaw.length === 1) {
+          const m = monthRaw[0];
+          // Maand: bij 1 cijfer 4–9 => 0X
+          if (m >= "4") {
+            month = "0" + m;
+            digits = day + month + rest.slice(1);
+          } else {
+            month = monthRaw; // 1–3: nog wachten op tweede cijfer
+          }
+        } else if (monthRaw.length === 2) {
+          month = monthRaw;
+        }
+
+        const afterMonth = digits.slice(4);
+        if (afterMonth.length > 0) {
+          year = afterMonth.slice(0, 4);
+        }
+      }
+
+      let formatted = "";
+      if (day)   formatted += day;
+      if (month) formatted += " / " + month;
+      if (year)  formatted += " / " + year;
+
       e.target.value = formatted;
-      sessionStorage.setItem("dob", formatted.replace(/\s/g, ""));
+
+      // Opslaan zonder spaties (maar mét slashes, zoals eerder)
+      if (formatted) {
+        sessionStorage.setItem("dob", formatted.replace(/\s/g, ""));
+      } else {
+        sessionStorage.removeItem("dob");
+      }
     });
   });
 
