@@ -46,67 +46,70 @@ if (!window.formSubmitInitialized) {
     return ip;
   }
 
-  // -----------------------------------------------------------
-  // 🔹 Payload opbouwen
-  // -----------------------------------------------------------
-  async function buildPayload(campaign = {}) {
-    const ip = await getIpOnce();
+// -----------------------------------------------------------
+// 🔹 Payload opbouwen
+// -----------------------------------------------------------
+async function buildPayload(campaign = {}) {
+  const ip = await getIpOnce();
 
-    const t_id     = sessionStorage.getItem("t_id")     || crypto.randomUUID();
-    const aff_id   = sessionStorage.getItem("aff_id")   || "unknown";
-    const offer_id = sessionStorage.getItem("offer_id") || "unknown";
-    const sub_id   = sessionStorage.getItem("sub_id")   || "unknown";
-    const sub2     = sessionStorage.getItem("sub2")     || "unknown";
+  const t_id     = sessionStorage.getItem("t_id")     || crypto.randomUUID();
+  const aff_id   = sessionStorage.getItem("aff_id")   || "unknown";
+  const offer_id = sessionStorage.getItem("offer_id") || "unknown";
+  const sub_id   = sessionStorage.getItem("sub_id")   || "unknown";
+  const sub2     = sessionStorage.getItem("sub2")     || "unknown";
 
-    const campaignUrl = `${window.location.origin}${window.location.pathname}?status=online`;
+  const campaignUrl = `${window.location.origin}${window.location.pathname}?status=online`;
 
-    // DOB (ISO)
-    const dobValue = sessionStorage.getItem("dob");
-    let dob = "";
-    if (dobValue?.includes("/")) {
-      const [dd, mm, yyyy] = dobValue.split("/");
-      dob = `${yyyy}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")}`;
-    }
-
-    // CID / SID normaliseren
-    let cid = campaign.cid || null;
-    let sid = campaign.sid || null;
-    if (!cid || cid === "undefined") cid = null;
-    if (!sid || sid === "undefined") sid = null;
-
-    const payload = {
-      cid,
-      sid,
-      gender:     sessionStorage.getItem("gender")     || "",
-      firstname:  sessionStorage.getItem("firstname")  || "",
-      lastname:   sessionStorage.getItem("lastname")   || "",
-      email:      sessionStorage.getItem("email")      || "",
-      postcode:   sessionStorage.getItem("postcode")   || "",
-      straat:     sessionStorage.getItem("straat")     || "",
-      huisnummer: sessionStorage.getItem("huisnummer") || "",
-      woonplaats: sessionStorage.getItem("woonplaats") || "",
-      telefoon:   sessionStorage.getItem("telefoon")   || "",
-      dob,
-      t_id,
-      aff_id,
-      offer_id,
-      sub_id,
-      sub2,
-      f_1453_campagne_url: campaignUrl,
-      f_17_ipaddress: ip,
-      f_55_optindate: new Date().toISOString().split(".")[0] + "+0000",
-      is_shortform: campaign.is_shortform || false,
-    };
-
-if (campaign.f_2014_coreg_answer)
-  payload.f_2014_coreg_answer = campaign.f_2014_coreg_answer;
-
-if (campaign.f_2575_coreg_answer_dropdown)
-  payload.f_2575_coreg_answer_dropdown = campaign.f_2575_coreg_answer_dropdown;
-
-    return payload;
+  // DOB (ISO)
+  const dobValue = sessionStorage.getItem("dob");
+  let dob = "";
+  if (dobValue?.includes("/")) {
+    const [dd, mm, yyyy] = dobValue.split("/");
+    dob = `${yyyy}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")}`;
   }
-  window.buildPayload = buildPayload;
+
+  // CID / SID normaliseren
+  let cid = campaign.cid || null;
+  let sid = campaign.sid || null;
+  if (!cid || cid === "undefined") cid = null;
+  if (!sid || sid === "undefined") sid = null;
+
+  const payload = {
+    cid,
+    sid,
+    gender:     sessionStorage.getItem("gender")     || "",
+    firstname:  sessionStorage.getItem("firstname")  || "",
+    lastname:   sessionStorage.getItem("lastname")   || "",
+    email:      sessionStorage.getItem("email")      || "",
+    postcode:   sessionStorage.getItem("postcode")   || "",
+    straat:     sessionStorage.getItem("straat")     || "",
+    huisnummer: sessionStorage.getItem("huisnummer") || "",
+    woonplaats: sessionStorage.getItem("woonplaats") || "",
+    telefoon:   sessionStorage.getItem("telefoon")   || "",
+    dob,
+    t_id,
+    aff_id,
+    offer_id,
+    sub_id,
+    sub2,
+    f_1453_campagne_url: campaignUrl,
+    f_17_ipaddress: ip,
+    f_55_optindate: new Date().toISOString().split(".")[0] + "+0000",
+    is_shortform: campaign.is_shortform || false,
+  };
+
+  // 🔹 DIT MOET ÉCHT BINNEN DE FUNCTIE STAAN
+  if (campaign.f_2014_coreg_answer) {
+    payload.f_2014_coreg_answer = campaign.f_2014_coreg_answer;
+  }
+
+  if (campaign.f_2575_coreg_answer_dropdown) {
+    payload.f_2575_coreg_answer_dropdown = campaign.f_2575_coreg_answer_dropdown;
+  }
+
+  return payload;
+}
+window.buildPayload = buildPayload;
 
   // -----------------------------------------------------------
   // 🔹 Lead versturen
