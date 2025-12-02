@@ -8,9 +8,12 @@ if (!window.formSubmitInitialized) {
 
   // 🔧 Debug logging volledig uit in productie
   const DEBUG = false;
-
+  
+  // alles wat log() / warn() aanroept wordt een no-op
   const log   = () => {};
   const warn  = () => {};
+  
+  // errors blijven zichtbaar
   const error = (...args) => console.error(...args);
 
   // -----------------------------------------------------------
@@ -71,7 +74,6 @@ if (!window.formSubmitInitialized) {
     if (!cid || cid === "undefined") cid = null;
     if (!sid || sid === "undefined") sid = null;
 
-    // BASIS PAYLOAD
     const payload = {
       cid,
       sid,
@@ -96,14 +98,11 @@ if (!window.formSubmitInitialized) {
       is_shortform: campaign.is_shortform || false,
     };
 
-    // 🔹 COREGAntwoord toevoegen (als aangeleverd)
-    if (campaign.f_2014_coreg_answer) {
+    if (campaign.f_2014_coreg_answer)
       payload.f_2014_coreg_answer = campaign.f_2014_coreg_answer;
-    }
 
-    if (campaign.f_2575_coreg_answer_dropdown) {
+    if (campaign.f_2575_coreg_answer_dropdown)
       payload.f_2575_coreg_answer_dropdown = campaign.f_2575_coreg_answer_dropdown;
-    }
 
     return payload;
   }
@@ -142,7 +141,7 @@ if (!window.formSubmitInitialized) {
   window.fetchLead = fetchLead;
 
   // -----------------------------------------------------------
-  // 🔹 DOB autoformatting
+  // 🔹 DOB autoformatting (blijft ongewijzigd)
   // -----------------------------------------------------------
   document.addEventListener("DOMContentLoaded", () => {
     const dobInput = document.getElementById("dob");
@@ -200,6 +199,7 @@ if (!window.formSubmitInitialized) {
       btn.disabled = true;
 
       try {
+        // Velden opslaan
         const genderEl = form.querySelector("input[name='gender']:checked");
         if (genderEl) sessionStorage.setItem("gender", genderEl.value);
 
@@ -233,6 +233,7 @@ if (!window.formSubmitInitialized) {
           } catch {}
         })();
 
+        // Markeer shortform klaar
         sessionStorage.setItem("shortFormCompleted", "true");
         document.dispatchEvent(new Event("shortFormSubmitted"));
 
@@ -265,9 +266,9 @@ if (!window.formSubmitInitialized) {
     const invalid = fields.filter(id => !document.getElementById(id)?.value.trim());
     if (invalid.length) return alert("Vul alle verplichte velden in.");
 
+    // Server-side adrescheck
     const pc = document.getElementById("postcode").value.replace(/\s+/g, "");
     const hn = document.getElementById("huisnummer").value.trim();
-
     try {
       const r = await fetch("https://globalcoregflow-nl.vercel.app/api/validateAddressNL.js", {
         method: "POST",
@@ -286,6 +287,7 @@ if (!window.formSubmitInitialized) {
       return alert("Adresvalidatie niet mogelijk.");
     }
 
+    // Opslaan
     fields.forEach(id => sessionStorage.setItem(id, document.getElementById(id).value.trim()));
 
     const pending = JSON.parse(sessionStorage.getItem("longFormCampaigns") || "[]");
@@ -302,14 +304,12 @@ if (!window.formSubmitInitialized) {
           pending.map(async camp => {
             const ans = sessionStorage.getItem(`f_2014_coreg_answer_${camp.cid}`);
             const drop = sessionStorage.getItem(`f_2575_coreg_answer_dropdown_${camp.cid}`);
-
             const payload = await buildPayload({
               cid: camp.cid,
               sid: camp.sid,
               f_2014_coreg_answer: ans || undefined,
               f_2575_coreg_answer_dropdown: drop || undefined
             });
-
             return window.fetchLead(payload);
           })
         );
@@ -330,31 +330,7 @@ if (!window.formSubmitInitialized) {
   });
 
   // -----------------------------------------------------------
-  // 🔄 FIX: pendingShortCoreg → echte coreg antwoorden
-  // -----------------------------------------------------------
-  document.addEventListener("shortFormSubmitted", () => {
-    const pending = JSON.parse(sessionStorage.getItem("pendingShortCoreg") || "[]");
-    if (!pending.length) return;
-
-    pending.forEach(entry => {
-      const { cid, answer_value } = entry;
-
-      const key = `coreg_answers_${cid}`;
-      const existing = JSON.parse(sessionStorage.getItem(key) || "[]");
-
-      if (!existing.includes(answer_value)) {
-        existing.push(answer_value);
-        sessionStorage.setItem(key, JSON.stringify(existing));
-      }
-
-      sessionStorage.setItem(`f_2014_coreg_answer_${cid}`, existing.join(" - "));
-    });
-
-    sessionStorage.removeItem("pendingShortCoreg");
-  });
-
-  // -----------------------------------------------------------
-  // 🔹 Loaded melding
+  // 🔹 Eén nette loaded melding
   // -----------------------------------------------------------
   console.info("🎉 formSubmit loaded successfully");
 }
